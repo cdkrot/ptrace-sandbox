@@ -7,7 +7,7 @@
 
 #include <stdio.h>
 
-int main(int argc, const char** argv) {
+int main(int argc, char** argv) {
     if (argc < 2)
         return -1;
     
@@ -18,7 +18,7 @@ int main(int argc, const char** argv) {
     
     if (child == 0) {
         ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-        execl(argv[1], argv[1], NULL);
+        execve(argv[1], argv + 1, NULL);
     } else {
         int status;
         int insyscall = 0;
