@@ -1,0 +1,5 @@
+detect_syscalls
+aplusb
+res/aplusb.out
+*~
+src/*~
