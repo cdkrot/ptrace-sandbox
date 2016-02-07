@@ -4,8 +4,10 @@
 #include <unistd.h>
 #include <sys/user.h>
 #include <sys/syscall.h>   /* For SYS_write etc */
-
+#include <errno.h>
+#include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #ifdef __x86_64
   typedef long long int register_type;
@@ -69,7 +71,7 @@ void get_syscall_descr(char* buf, size_t sz, register_type id) {
 int main(int argc, char** argv) {
     if (argc < 2)
         return -1;
-    
+
     pid_t child = fork();
 
     if (child == -1)
@@ -80,30 +82,46 @@ int main(int argc, char** argv) {
         execve(argv[1], argv + 1, NULL);
     } else {
         int status;
-        int insyscall = 0;
+        bool insyscall = false;
         char buf[100];
-        while(1) {
-            wait(&status);
-            if(WIFEXITED(status))
-                break;
-
-            struct user_regs_struct registers;
-            ptrace(PTRACE_GETREGS, child, 0, &registers);
-
-            get_syscall_descr(buf, sizeof(buf), registers.ORIG_EAX);
-            
-            if (insyscall == 0) {
-                // syscall start                 
-                printf("Sys call %s, params " REG_FORMAT " " REG_FORMAT " " REG_FORMAT "\n",
-                       buf, registers.EBX, registers.ECX, registers.EDX);
-            } else {
-                //syscall return
-                printf("Sys call %s, return " REG_FORMAT "\n", buf, registers.EAX);
+        
+        wait(&status);
+        bool firsttime = 1;
+        
+        while(!WIFEXITED(status)) {
+            if (errno) {
+                fprintf(stderr, "error, %s\n", strerror(errno));
+                errno = 0;
             }
-            insyscall = 1 - insyscall;
+            if (WIFSTOPPED(status) && WSTOPSIG(status) == (SIGTRAP | (firsttime ? 0 : 0x80))) {
+                struct user_regs_struct registers;
+                ptrace(PTRACE_GETREGS, child, 0, &registers);
+                
+                if (insyscall == 0) {
+                    // syscall start
+                    get_syscall_descr(buf, sizeof(buf), registers.ORIG_EAX);
+                    fprintf(stderr, "Sys call %s, params " REG_FORMAT " " REG_FORMAT " " REG_FORMAT "\n",
+                            buf, registers.EBX, registers.ECX, registers.EDX);
+                } else {
+                    //syscall return
+                    fprintf(stderr, "Sys call %s, return " REG_FORMAT "\n", buf, registers.EAX);
+                    
+                    if (firsttime) {
+                        // first registered syscall (execve),
+                        // enable sandboxing.
+                        firsttime = false;
+                        ptrace(PTRACE_SETOPTIONS, child, NULL, PTRACE_O_EXITKILL | PTRACE_O_TRACESYSGOOD);
+                    }
+                }
+                insyscall = !insyscall;
+            } else {
+                fprintf(stderr, "Unknown tracing event\n");
+            }
             
             ptrace(PTRACE_SYSCALL, child, NULL, NULL); // continue tracing.
+            wait(&status);
         }
+        fprintf(stderr, "Program exited with %d\n", WEXITSTATUS(status));
     }
     return 0;
 }
