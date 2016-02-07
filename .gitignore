@@ -1,5 +1,6 @@
 detect_syscalls
 aplusb
+return-1
 res/aplusb.out
 *~
 src/*~
