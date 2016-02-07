@@ -20,5 +20,5 @@ clean:
 	rm -f return-1
 	rm -f res/aplusb.out
 
-.PHONY:   main clean
-.DEFAULT: main
+.PHONY:   all clean
+.DEFAULT: all
