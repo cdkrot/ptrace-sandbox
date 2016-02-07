@@ -12,20 +12,38 @@
 #ifdef __x86_64
   typedef long long int register_type;
   #define REG_FORMAT "%lld"
-  #define ORIG_EAX orig_rax
-  #define EAX      rax
-  #define EBX      rbx
-  #define ECX      rcx
-  #define EDX      rdx
 #else
   typedef long int      register_type;
   #define REG_FORMAT "%ld"
-  #define ORIG_EAX orig_eax
-  #define EAX      eax
-  #define EBX      ebx
-  #define ECX      ecx
-  #define EDX      edx
 #endif
+
+struct syscall_info {
+    register_type id;
+    register_type arg1;
+    register_type arg2;
+    register_type arg3;
+    register_type arg4;
+    register_type arg5; /* extraction of arg 6 is not supported yet */
+};
+
+struct syscall_info extract_syscall_info(pid_t child) {
+    struct user_regs_struct registers;
+    ptrace(PTRACE_GETREGS, child, 0, &registers);
+
+    struct syscall_info result;
+    #ifdef __x86_64
+    result.id   = registers.orig_rax;
+    result.arg1 = registers.rdi;
+    result.arg2 = registers.rsi;
+    result.arg3 = registers.rdx;
+    result.arg4 = registers.r10;
+    result.arg5 = registers.r8;
+    #else
+    #error "Other platforms unsupported yet"
+    #endif
+    
+    return result;
+}
 
 const char* get_syscall_name(register_type id) {
     switch (id) {
@@ -83,6 +101,7 @@ int main(int argc, char** argv) {
     } else {
         int status;
         bool insyscall = false;
+        struct syscall_info inf;
         char buf[100];
         
         wait(&status);
@@ -94,17 +113,17 @@ int main(int argc, char** argv) {
                 errno = 0;
             }
             if (WIFSTOPPED(status) && WSTOPSIG(status) == (SIGTRAP | (firsttime ? 0 : 0x80))) {
-                struct user_regs_struct registers;
-                ptrace(PTRACE_GETREGS, child, 0, &registers);
-                
                 if (insyscall == 0) {
                     // syscall start
-                    get_syscall_descr(buf, sizeof(buf), registers.ORIG_EAX);
-                    fprintf(stderr, "Sys call %s, params " REG_FORMAT " " REG_FORMAT " " REG_FORMAT "\n",
-                            buf, registers.EBX, registers.ECX, registers.EDX);
+                    inf = extract_syscall_info(child);
+                    get_syscall_descr(buf, sizeof(buf), inf.id);
+                    fprintf(stderr, "Sys call %s, params "
+                            REG_FORMAT " " REG_FORMAT " " REG_FORMAT " " REG_FORMAT "\n",
+                            buf, inf.arg1, inf.arg2, inf.arg3, inf.arg4);
                 } else {
                     //syscall return
-                    fprintf(stderr, "Sys call %s, return " REG_FORMAT "\n", buf, registers.EAX);
+                    inf = extract_syscall_info(child);
+                    fprintf(stderr, "Sys call %s, return " REG_FORMAT "\n", buf, inf.id);
                     
                     if (firsttime) {
                         // first registered syscall (execve),
