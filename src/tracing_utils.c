@@ -12,6 +12,7 @@ void extract_syscall_params(pid_t child, struct syscall_info* out) {
     out->arg3 = regs.rdx;
     out->arg4 = regs.r10;
     out->arg5 = regs.r8;
+    out->arg6 = regs.r9;
 #else
 #error "Other platforms are not supported yet"
 #endif
@@ -21,7 +22,7 @@ void extract_syscall_result(pid_t child, struct syscall_info* out) {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, child, 0, &regs);
 #ifdef __x86_64
-    out->ret = regs.rax;
+    out->ret = regs.rax; /* actually not, but don't know where to find ret val yet*/
 #else
 #error "Other platforms are not supported yet"
 #endif

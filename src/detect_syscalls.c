@@ -66,7 +66,7 @@ int main(int argc, char** argv) {
         execve(argv[1], argv + 1, NULL);
     } else {
         int status;
-        bool insyscall = false;
+        int insyscall = 0;
         struct syscall_info inf;
         char buf[100];
         
