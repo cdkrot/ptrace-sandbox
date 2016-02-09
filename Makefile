@@ -5,8 +5,8 @@ CPPFLAGS=-Wall -Wextra -std=c++11
 
 all: detect_syscalls aplusb return-1-cpp return-minus-1-c return-0-noglibc
 
-detect_syscalls: src/detect_syscalls.c
-	gcc ${CFLAGS} src/detect_syscalls.c -o detect_syscalls
+detect_syscalls: src/detect_syscalls.c src/tracing_utils.h src/tracing_utils.c
+	gcc ${CFLAGS} src/detect_syscalls.c src/tracing_utils.c -o detect_syscalls
 
 aplusb: src/aplusb.cpp
 	g++ ${CPPFLAGS} src/aplusb.cpp -o aplusb
