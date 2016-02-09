@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
         struct syscall_info inf;
         char buf[100];
         
-        wait(&status);
+        waitpid(child, &status, __WALL);
         bool firsttime = 1;
         
         while(!WIFEXITED(status)) {
@@ -84,8 +84,8 @@ int main(int argc, char** argv) {
                     extract_syscall_params(child, &inf);
                     get_syscall_descr(buf, sizeof(buf), inf.id);
                     fprintf(stderr, "Sys call %s, params "
-                            REG_FORMAT " " REG_FORMAT " " REG_FORMAT " " REG_FORMAT "\n",
-                            buf, inf.arg1, inf.arg2, inf.arg3, inf.arg4);
+                            REG_FORMAT " " REG_FORMAT " " REG_FORMAT " " REG_FORMAT " " REG_FORMAT " " REG_FORMAT "\n",
+                            buf, inf.arg1, inf.arg2, inf.arg3, inf.arg4, inf.arg5, inf.arg6);
                 } else {
                     //syscall return
                     extract_syscall_result(child, &inf);
@@ -108,7 +108,7 @@ int main(int argc, char** argv) {
             }
             
             ptrace(PTRACE_SYSCALL, child, NULL, NULL); // continue tracing.
-            wait(&status);
+            waitpid(child, &status, __WALL);
         }
         fprintf(stderr, "Program exited with %d\n", WEXITSTATUS(status));
     }

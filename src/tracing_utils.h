@@ -18,7 +18,7 @@ struct syscall_info {
     register_type arg3;
     register_type arg4;
     register_type arg5;
-    register_type arg6; /* extraction of arg 6 is not supported yet */
+    register_type arg6;
     register_type ret;
 };
 
