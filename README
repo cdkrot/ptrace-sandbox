@@ -1,3 +1,32 @@
-Ptrace-based sandbox, Proof-of-concept for ejudge
+Ptrace-based sandbox, Proof-of-concept for ejudge and not only
+==============================================================
 
-(write something here)
+Contents
+========
+
+* detect_syscalls, program similar to strace, but not as pretty
+
+Demos to test on
+================
+
+* aplusb, read two numbers from file, write sum to other, c++.
+* return-minus-1-c, return -1, c.
+* return-1-cpp, return +1, c++.
+* return-0-noglibc, return 0, no system calls performed, asm.
+
+Requirements
+============
+
+* Linux kernel and gnu libc, recent enough.
+* At the moment only x86_64 architecture supported.
+
+How to reportbug
+================
+
+Please include in your report:
+
+* Linux kernel version
+* Gnu libc version
+* Your architecture (example: x86_64, x86, Sparc, ...)
+* strace and detect_syscalls logs on demo programs (aplusb, return-0-noglibc, return-minus-1-c will be enough).
+
