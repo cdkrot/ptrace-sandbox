@@ -1,6 +1,9 @@
 detect_syscalls
 aplusb
 return-1
+return-1-cpp
+return-minus-1-c
+return-0-noglibc
 res/aplusb.out
 *~
 src/*~
