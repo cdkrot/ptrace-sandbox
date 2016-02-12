@@ -68,6 +68,7 @@ int main(int argc, char** argv) {
         int status;
         int insyscall = 0;
         struct syscall_info inf;
+        struct user_regs_struct regs;
         char buf[100];
         
         waitpid(child, &status, __WALL);
@@ -81,15 +82,27 @@ int main(int argc, char** argv) {
             if (WIFSTOPPED(status) && WSTOPSIG(status) == (SIGTRAP | (firsttime ? 0 : 0x80))) {
                 if (insyscall == 0) {
                     // syscall start
-                    extract_syscall_params(child, &inf);
+                    extract_registers(child, &regs);
+                    extract_syscall_params(&regs, &inf);
+                    
                     get_syscall_descr(buf, sizeof(buf), inf.id);
                     fprintf(stderr, "Sys call %s, params "
                             REG_FORMAT " " REG_FORMAT " " REG_FORMAT " " REG_FORMAT " " REG_FORMAT " " REG_FORMAT "\n",
                             buf, inf.arg1, inf.arg2, inf.arg3, inf.arg4, inf.arg5, inf.arg6);
+                    if (inf.id == SYS_write) {
+                        size_t sz = inf.arg3 + 1;
+                        size_t sz_al = sz / sizeof(register_type) + 1;
+                        register_type buf2[sz_al];
+                        memcpy_from_proc((void*)inf.arg2, buf2, sz_al * sizeof(register_type), child);
+                        char* str = (char*)buf2;
+                        buf2[sz] = '\0';
+                        fprintf(stderr, "Write content: %s\n", str);
+                    }
                 } else {
                     //syscall return
-                    extract_syscall_result(child, &inf);
-                    fprintf(stderr, "Sys call %s, return " REG_FORMAT "\n", buf, inf.ret);
+                    extract_registers(child, &regs);
+                    extract_syscall_result(child, &regs, &inf);
+                    fprintf(stderr, "Sys call %s, res: " REG_FORMAT ", error: " REG_FORMAT "\n", buf, inf.ret, inf.err);
                     
                     if (firsttime) {
                         // first registered syscall (execve),

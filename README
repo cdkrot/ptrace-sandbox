@@ -4,7 +4,8 @@ Ptrace-based sandbox, Proof-of-concept for ejudge and not only
 Contents
 ========
 
-* detect_syscalls, program similar to strace, but not as pretty
+* newdetect, program similar to strace, but not too pretty (because it is not final goal).
+* detect_syscalls, similar to newdetect, but LEGACY and BUGGY
 
 Demos to test on
 ================
@@ -13,6 +14,7 @@ Demos to test on
 * return-minus-1-c, return -1, c.
 * return-1-cpp, return +1, c++.
 * return-0-noglibc, return 0, no system calls performed, asm.
+* hello, Guess what, c.
 
 Requirements
 ============

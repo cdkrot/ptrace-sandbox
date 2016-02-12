@@ -1,4 +1,6 @@
 detect_syscalls
+hello
+newdetect
 aplusb
 return-1
 return-1-cpp
