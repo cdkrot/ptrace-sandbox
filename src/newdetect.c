@@ -48,7 +48,7 @@ void on_syscall_leave(pid_t pid) {
     if (sizeof(long) != 8)
         die(1, "Sorry\n");
     
-    // positive value in [1, 4095] means errno, otherways it means "noerror", but result.
+    // negative value in [-4095, -1] means negated errno, otherways it means "noerror", but result.
     if (regs.rax >= (unsigned long long)(-4095))
         fprintf(stderr, "Leaving syscall, error: %lld\n", -regs.rax);
     else
