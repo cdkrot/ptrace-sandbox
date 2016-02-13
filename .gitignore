@@ -10,3 +10,5 @@ brk-1-noglibc
 res/aplusb.out
 *~
 src/*~
+*.swp
+src/*.swp
