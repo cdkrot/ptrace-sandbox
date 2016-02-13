@@ -21,6 +21,8 @@ Requirements
 
 * Linux kernel and gnu libc, recent enough.
 * At the moment only x86_64 architecture supported.
+* Program should call brk(NULL) before trying to change its break. Otherwise, it would be killed.
+  [note]: You REALLY want to call brk(NULL)!
 
 How to reportbug
 ================

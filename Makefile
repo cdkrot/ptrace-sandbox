@@ -3,7 +3,7 @@
 CFLAGS=-Wall -Wextra -std=gnu11 -ggdb3
 CPPFLAGS=-Wall -Wextra -std=gnu++11 -ggdb3
 
-all: detect_syscalls aplusb return-1-cpp return-minus-1-c return-0-noglibc newdetect hello
+all: detect_syscalls aplusb return-1-cpp return-minus-1-c return-0-noglibc brk-1-noglibc newdetect hello
 
 detect_syscalls: src/detect_syscalls.c src/tracing_utils.h src/tracing_utils.c
 	gcc ${CFLAGS} src/detect_syscalls.c src/tracing_utils.c -o detect_syscalls
@@ -19,6 +19,9 @@ return-1-cpp: src/return-1.cpp
 
 return-0-noglibc: src/return-0-noglibc.s
 	gcc -nostdlib src/return-0-noglibc.s -o return-0-noglibc
+
+brk-1-noglibc: src/brk-1-noglibc.s
+	gcc -nostdlib src/brk-1-noglibc.s -o brk-1-noglibc
 
 return-minus-1-c: src/return-minus-1.c
 	gcc ${CFLAGS} src/return-minus-1.c -o return-minus-1-c

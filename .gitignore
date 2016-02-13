@@ -6,6 +6,7 @@ return-1
 return-1-cpp
 return-minus-1-c
 return-0-noglibc
+brk-1-noglibc
 res/aplusb.out
 *~
 src/*~
