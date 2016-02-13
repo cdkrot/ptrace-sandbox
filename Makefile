@@ -1,12 +1,12 @@
 #!/usr/bin/make -f
 
-CFLAGS=-Wall -Wextra -std=gnu11 -ggdb3
-CPPFLAGS=-Wall -Wextra -std=gnu++11 -ggdb3
+CFLAGS=-Wall -Wextra -std=gnu11 -Isrc/include -ggdb3
+CPPFLAGS=-Wall -Wextra -std=gnu++11 -Isrc/include -ggdb3
 
 all: detect_syscalls aplusb return-1-cpp return-minus-1-c return-0-noglibc brk-1-noglibc newdetect hello
 
-detect_syscalls: src/detect_syscalls/detect_syscalls.c src/detect_syscalls/tracing_utils.h src/detect_syscalls/tracing_utils.c
-	gcc ${CFLAGS} src/detect_syscalls/detect_syscalls.c src/detect_syscalls/tracing_utils.c -o detect_syscalls
+detect_syscalls: src/legacy/detect_syscalls.c src/legacy/tracing_utils.h src/legacy/tracing_utils.c
+	gcc ${CFLAGS} src/legacy/detect_syscalls.c src/legacy/tracing_utils.c -o detect_syscalls
 
 hello: src/tests/hello.c
 	gcc ${CFLAGS} src/tests/hello.c -o hello
@@ -26,8 +26,17 @@ brk-1-noglibc: src/tests/brk-1-noglibc.s
 return-minus-1-c: src/tests/return-minus-1.c
 	gcc ${CFLAGS} src/tests/return-minus-1.c -o return-minus-1-c
 
-newdetect: src/newdetect.c
-	gcc ${CFLAGS} src/newdetect.c -rdynamic -o newdetect
+newdetect: obj/ obj/newdetect.o obj/associative_array.o
+	gcc obj/newdetect.o obj/associative_array.o -rdynamic -o newdetect
+
+obj/:
+	mkdir -p obj/
+
+obj/associative_array.o: src/associative_array.c src/include/associative_array.h
+	gcc ${CFLAGS} src/associative_array.c -c -o obj/associative_array.o
+
+obj/newdetect.o: src/newdetect.c
+	gcc ${CFLAGS} src/newdetect.c -c -o obj/newdetect.o
 
 clean:
 	rm -f aplusb
@@ -40,6 +49,7 @@ clean:
 	rm -f newdetect
 	rm -f hello
 	rm -f res/aplusb.out
+	rm -Rf obj/
 
 .PHONY:   all clean
 .DEFAULT: all

@@ -16,6 +16,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stddef.h>
+
+#include <associative_array.h>
 
 #ifndef __x86_64
 #error Only x86-64 is supported now
@@ -48,8 +51,7 @@ struct {
     uint64_t max_brk_mem;
 } brk_info;
 
-void brk_init(void)
-{
+void brk_init(void) {
     brk_info.was_called_null = false;
     brk_info.current_break = NULL;
     brk_info.break_beginning = NULL;
@@ -76,6 +78,45 @@ void on_brk_leave(pid_t pid, uint64_t result) {
             brk_info.max_brk_mem = max(brk_info.max_brk_mem, result - (uint64_t)brk_info.break_beginning);
         }
     }
+}
+
+int ptr_cmp(const void* a, const void* b)
+{
+    if ((*((void**) a)) > (*((void**) b)))
+        return 1;
+    else if ((*((void**) a)) == (*((void**) b)))
+        return 0;
+    return -1;
+}
+
+struct {
+    associative_array mmap_segments;
+    uint64_t max_mmap_mem;
+    size_t last_mmap_length;
+} mmap_info;
+
+void mmap_init(void) {
+    mmap_info.mmap_segments = NULL;
+    mmap_info.max_mmap_mem = 0;
+}
+
+void on_mmap_enter(pid_t pid, struct user_regs_struct regs) {
+    mmap_info.last_mmap_length = regs.rsi;
+}
+
+void on_mmap_leave(pid_t pid, struct user_regs_struct regs) {
+    if (regs.rsi < (unsigned long long)(-4095)) {
+//        associative_array_add(mmap_info.mmap_segments,
+//                              associative_array_add_init(sizeof(void*), sizeof(size_t), ptr_cmp, &((void*)regs.rax), &(mmap_info.last_mmap_length)));
+    }
+}
+
+void on_munmap_enter(pid_t pid, struct user_regs_struct regs) {
+
+}
+
+void on_munmap_leave(pid_t pid, struct user_regs_struct regs) {
+
 }
 
 void on_signal(pid_t pid, int sig) {
