@@ -3,6 +3,7 @@
 #include <sys/ptrace.h>
 #include <sys/wait.h>
 #include <sys/user.h>
+#include <sys/syscall.h>
 #include <signal.h>
 #include <time.h>
 
@@ -12,6 +13,15 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <execinfo.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <assert.h>
+
+#ifndef __x86_64
+#error Only x86-64 is supported now
+#endif
+
+#define max(a, b) ((a) > (b) ? (a) : (b))
 
 __attribute__((noreturn)) void die(int exit_code, const char* fmt, ...) {
     va_list args;
@@ -31,20 +41,62 @@ __attribute__((noreturn)) void die(int exit_code, const char* fmt, ...) {
     exit(exit_code);
 }
 
+struct {
+    bool  was_called_null;
+    void* current_break;
+    void* break_beginning;
+    uint64_t max_brk_mem;
+} brk_info;
+
+void brk_init(void)
+{
+    brk_info.was_called_null = false;
+    brk_info.current_break = NULL;
+    brk_info.break_beginning = NULL;
+    brk_info.max_brk_mem = 0;
+}
+
+void on_brk_enter(pid_t pid, uint64_t addr) {
+    if (!brk_info.was_called_null && (void*)addr != NULL) {
+        ptrace(PTRACE_KILL, pid, NULL, NULL);
+        die(1, "Tracee attempted to call brk(%p) without previous brk(NULL). Killed.\n", (void*)addr);
+    }
+    if (!brk_info.was_called_null)
+        brk_info.was_called_null = true;
+}
+
+void on_brk_leave(pid_t pid, uint64_t result) {
+    assert(pid);
+    if (result < (unsigned long long)(-4095)) {
+        if (brk_info.current_break == NULL) {
+            brk_info.current_break = (void*)result;
+            brk_info.break_beginning = (void*)result;
+        } else {
+            brk_info.current_break = (void*)result;
+            brk_info.max_brk_mem = max(brk_info.max_brk_mem, result - (uint64_t)brk_info.break_beginning);
+        }
+    }
+}
+
 void on_signal(pid_t pid, int sig) {
     fprintf(stderr, "Signal: %d in %d\n", sig, (int)(pid));
 }
 
-void on_syscall_enter(pid_t pid) {
+void on_syscall_enter(pid_t pid, int64_t* syscall_num) {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, pid, NULL, &regs);
+    *syscall_num = regs.orig_rax;
+
+    if ((*syscall_num) == SYS_brk)
+        on_brk_enter(pid, regs.rdi);
+
     fprintf(stderr, "Entering syscall %lld(%lld, %lld, %lld, %lld, %lld, %lld)\n", regs.orig_rax, regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9);
 }
 
-void on_syscall_leave(pid_t pid) {
+void on_syscall_leave(pid_t pid, int64_t syscall_num) {
     struct user_regs_struct regs;
     ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-    
+
     if (sizeof(long) != 8)
         die(1, "Sorry\n");
     
@@ -53,10 +105,16 @@ void on_syscall_leave(pid_t pid) {
         fprintf(stderr, "Leaving syscall, error: %lld\n", -regs.rax);
     else
         fprintf(stderr, "Leaving syscall, result: %lld\n", regs.rax);
+
+    if (syscall_num == SYS_brk)
+        on_brk_leave(pid, regs.rax);
 }
 
 void on_child_exit(pid_t pid, int code) {
     fprintf(stderr, "[%d exited with %d]\n", pid, code);
+    fprintf(stderr, "\nMemory statistics:\n");
+    fprintf(stderr, "Maximum brk(2) memory: %lu bytes\n", brk_info.max_brk_mem);
+    fprintf(stderr, "Maximum mmap(2) memory: <unsupported yet>\n");
 }
 
 void on_groupstop(pid_t pid) {
@@ -93,8 +151,12 @@ int main(int argc, char** argv) {
         execve(argv[1], argv + 1, NULL);
     } else {
         // parent code.
+        
+        brk_init();
+
         int insyscall = 0;
         int options_enabled = 0;
+        int64_t syscall_num;
         while (1) {
             int status;
             child = waitpid((pid_t)(-1), &status, __WALL);
@@ -130,9 +192,9 @@ int main(int argc, char** argv) {
 
             if (syscallstop) {
                 if (!insyscall)
-                    on_syscall_enter(child), insyscall = 1;
+                    on_syscall_enter(child, &syscall_num), insyscall = 1;
                 else
-                    on_syscall_leave(child), insyscall = 0;
+                    on_syscall_leave(child, syscall_num), insyscall = 0;
                 if (!options_enabled) {
                     ptrace(PTRACE_SETOPTIONS, child, NULL,
                            PTRACE_O_TRACEEXEC | PTRACE_O_TRACEEXIT | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE | PTRACE_O_TRACESYSGOOD | PTRACE_O_EXITKILL);
