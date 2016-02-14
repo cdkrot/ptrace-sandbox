@@ -1,4 +1,4 @@
-detect_syscalls
+# < programs >
 hello
 newdetect
 aplusb
@@ -7,7 +7,10 @@ return-minus-1-c
 return-0-noglibc
 brk-1-noglibc
 res/aplusb.out
+# < generated dirs >
 obj
+src/gen
+# < editors >
 *~
 src/*~
 *.swp
