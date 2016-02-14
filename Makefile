@@ -41,7 +41,6 @@ obj/newdetect.o: src/newdetect.c
 clean:
 	rm -f aplusb
 	rm -f detect_syscalls
-	rm -f return-1
 	rm -f return-1-cpp
 	rm -f return-0-noglibc
 	rm -f brk-1-noglibc
@@ -49,7 +48,7 @@ clean:
 	rm -f newdetect
 	rm -f hello
 	rm -f res/aplusb.out
-	rm -Rf obj/
+	rm -Rf obj
 
 .PHONY:   all clean
 .DEFAULT: all
