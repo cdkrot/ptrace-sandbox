@@ -1,0 +1,17 @@
+{
+    "test1": {
+        "depend": ["test2"],
+        "build": [
+            "echo Test1",
+            "@echo Test1"
+        ],
+        "description": "testing module1"
+    },
+    "test2": {
+        "depend": [],
+        "build": [
+            "echo Test2"
+        ],
+        "description": "testing module2"
+    }
+}

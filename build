@@ -1,0 +1,107 @@
+#!/usr/bin/python3
+
+import sys, json, os
+
+class Module:
+    def __init__(self, name_, dep_list_, run_list_, descr_):
+        self.name     = name_
+        self.dep_list = dep_list_
+        self.run_list = run_list_
+        self.descr    = descr_
+
+    def run(self):
+        print ("> ./build {}".format(self.name))
+        for line in self.run_list:
+            if line.startswith("@echo"):
+                print("@ {}".format(line[len("@echo"):].strip()))
+            else:
+                print("> {}".format(line))
+                os.system(line)
+
+    def get_deps(self):
+        return self.dep_list
+
+    def get_descr(self):
+        return self.descr
+
+    def get_name(self):
+        return self.name
+
+class HelpPseudoModule:
+    def __init__(self, name_, p_modules_):
+        self.p_modules = p_modules_
+        self.name      = name_
+
+    def get_deps(self):
+        return []
+    
+    def run(self):
+        print ("Usage: ./build module1 module2 module3...")
+        print ("Modules available:")
+        width = 0
+        as_arr = []
+        
+        for mod in self.p_modules.values():
+            as_arr.append(mod)
+            width = max(width, len(mod.get_name()))
+
+        width += 3
+        as_arr.sort(key=lambda mod: mod.get_name())
+        
+        for mod in as_arr:
+            nm, desc = mod.get_name(), mod.get_descr()
+            print("{}:{}{}".format(nm, " " * (width - len(nm)), desc))
+        
+    def get_descr(self):
+        return "Prints this help"
+    def get_name(self):
+        return self.name
+    
+# Takes json
+# returns dict from name to Module
+def parse_modules(the_json):
+    res = dict()
+
+    for (key,val) in the_json.items():
+        if key.startswith("--"):
+            raise Exception("User modules can't start from '--', name: {}".format(key))
+        if not isinstance(key, str) or not isinstance(val, dict):
+            raise Exception("Wrong syntax, module name must be string and module description must be obj")
+        if res.get(key) != None:
+            raise Exception("Repeated modulename '{}'".format(key))
+        if val.get("depend") == None or val.get("build") == None or val.get("description") == None:
+            raise Exception("Module '{}' has incomplete definition, please provide 'depend', 'build', 'description' fields".format(key))
+        mod = Module(key, val.get("depend"), val.get("build"), val.get("description"))
+        res[key] = mod
+
+    res["--help"] = HelpPseudoModule("--help", res)
+    return res
+
+def dfs(modules, mod, used, order):
+    for dep in modules[mod].get_deps():
+        if used.get(dep) == None:
+            used[dep] = 1 # in dfs
+            dfs(modules, dep, used, order)
+            used[dep] = 2
+            order.append(dep)
+        elif used.get(dep) == 1:
+            raise Exception("Detected circular dependencies, fatal")
+
+def main(script_name, target_modules):
+    modules = parse_modules(json.loads(open("modules.list", "r").read()))
+    used = {}
+    order = []
+    for mod in target_modules:
+        if used.get(mod) == None:
+            used[mod] = 1
+            dfs(modules, mod, used, order)
+            used[mod] = 2
+            order.append(mod)
+    for mod in order:
+        modules[mod].run()
+    if len(order) == 0:
+        print("No modules found on command line. Try --help")
+    
+
+if __name__ == "__main__":
+    main(sys.argv[0], sys.argv[1:])
