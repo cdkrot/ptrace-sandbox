@@ -99,10 +99,11 @@ def parse_modules(the_json):
     return res
 
 def dfs(modules, mod, used, order):
+    if (modules.get(mod) == None):
+        raise Exception("Unable to find {} definition".format(mod))
+
     for dep in modules[mod].get_deps():
         if used.get(dep) == None:
-            if (modules.get(mod) == None):
-                raise Exception("Unable to find {} definition".format(mod))
             used[dep] = 1 # in dfs
             dfs(modules, dep, used, order)
             used[dep] = 2
