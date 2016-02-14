@@ -2,46 +2,50 @@
 
 import sys, json, os
 
-class Module:
-    def __init__(self, name_, dep_list_, run_list_, descr_):
-        self.name     = name_
-        self.dep_list = dep_list_
-        self.run_list = run_list_
-        self.descr    = descr_
+class ModuleBase:
+    def __init__(self, name, dep_list, descr):
+        self.__name     = name
+        self.__dep_list = dep_list
+        self.__descr    = descr
+        
+    def get_deps(self):
+        return self.__dep_list
+
+    def get_name(self):
+        return self.__name
+
+    def get_descr(self):
+        return self.__descr
 
     def run(self):
-        print ("> ./build {}".format(self.name))
-        for line in self.run_list:
+        pass
+
+class Module(ModuleBase):
+    def __init__(self, name, dep_list, run_list, descr):
+        super().__init__(name, dep_list, descr)
+        self.__run_list = run_list
+
+    def run(self):
+        print ("> ./build {}".format(self.get_name()))
+        for line in self.__run_list:
             if line.startswith("@echo"):
                 print("@ {}".format(line[len("@echo"):].strip()))
             else:
                 print("> {}".format(line))
                 os.system(line)
 
-    def get_deps(self):
-        return self.dep_list
+class HelpPseudoModule(ModuleBase):
+    def __init__(self, name, p_modules):
+        super().__init__(name, [], "Prints this help")
+        self.__p_modules = p_modules
 
-    def get_descr(self):
-        return self.descr
-
-    def get_name(self):
-        return self.name
-
-class HelpPseudoModule:
-    def __init__(self, name_, p_modules_):
-        self.p_modules = p_modules_
-        self.name      = name_
-
-    def get_deps(self):
-        return []
-    
     def run(self):
         print ("Usage: ./build module1 module2 module3...")
         print ("Modules available:")
         width = 0
         as_arr = []
         
-        for mod in self.p_modules.values():
+        for mod in self.__p_modules.values():
             as_arr.append(mod)
             width = max(width, len(mod.get_name()))
 
@@ -51,12 +55,28 @@ class HelpPseudoModule:
         for mod in as_arr:
             nm, desc = mod.get_name(), mod.get_descr()
             print("{}:{}{}".format(nm, " " * (width - len(nm)), desc))
-        
-    def get_descr(self):
-        return "Prints this help"
-    def get_name(self):
-        return self.name
+
+class ShowDepsPseudoModule(ModuleBase):
+    def __init__(self, name, p_modules):
+        super().__init__(name, [], "Displays dependencies of modules")
+        self.__p_modules = p_modules
     
+    def run(self):
+        as_arr = []
+        width = 0
+
+        for mod in self.__p_modules.values():
+            as_arr.append(mod)
+            width = max(width, len(mod.get_name()))
+        as_arr.sort(key = lambda mod: mod.get_descr())
+        width += 3
+        print("Dependencies of modules:")
+        for mod in as_arr:
+            nm, deps = mod.get_name(), " ".join(mod.get_deps()).strip()
+            if deps == "":
+                deps = "--no-deps--"
+            print("{}:{}{}".format(nm, " " * (width - len(nm)), deps))
+
 # Takes json
 # returns dict from name to Module
 def parse_modules(the_json):
@@ -74,12 +94,15 @@ def parse_modules(the_json):
         mod = Module(key, val.get("depend"), val.get("build"), val.get("description"))
         res[key] = mod
 
-    res["--help"] = HelpPseudoModule("--help", res)
+    res["--help"]     = HelpPseudoModule("--help", res)
+    res["--showdeps"] = ShowDepsPseudoModule("--showdeps", res)
     return res
 
 def dfs(modules, mod, used, order):
     for dep in modules[mod].get_deps():
         if used.get(dep) == None:
+            if (modules.get(mod) == None):
+                raise Exception("Unable to find {} definition".format(mod))
             used[dep] = 1 # in dfs
             dfs(modules, dep, used, order)
             used[dep] = 2
@@ -93,6 +116,8 @@ def main(script_name, target_modules):
     order = []
     for mod in target_modules:
         if used.get(mod) == None:
+            if modules.get(mod) == None:
+                raise Exception("Unable to find {} definition".format(mod))
             used[mod] = 1
             dfs(modules, mod, used, order)
             used[mod] = 2
