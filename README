@@ -5,7 +5,6 @@ Contents
 ========
 
 * newdetect, program similar to strace, but not too pretty (because it is not final goal).
-* detect_syscalls, similar to newdetect, but LEGACY and BUGGY
 
 Demos to test on
 ================
@@ -32,5 +31,5 @@ Please include in your report:
 * Linux kernel version
 * Gnu libc version
 * Your architecture (example: x86_64, x86, Sparc, ...)
-* strace and detect_syscalls logs on demo programs (aplusb, return-0-noglibc, return-minus-1-c will be enough).
+* strace and newdetect logs on demo programs (aplusb, return-0-noglibc, return-minus-1-c will be enough).
 
