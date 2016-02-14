@@ -19,6 +19,7 @@
 #include <stddef.h>
 
 #include <associative_array.h>
+#include "naming_utils.h"
 
 #ifndef __x86_64
 #error Only x86-64 is supported now
@@ -81,7 +82,7 @@ void on_brk_leave(pid_t pid, uint64_t result) {
 }
 
 int ptr_cmp(const void* a, const void* b)
-{
+{ // 0_0 ???
     if ((*((void**) a)) > (*((void**) b)))
         return 1;
     else if ((*((void**) a)) == (*((void**) b)))
@@ -128,10 +129,14 @@ void on_syscall_enter(pid_t pid, int64_t* syscall_num) {
     ptrace(PTRACE_GETREGS, pid, NULL, &regs);
     *syscall_num = regs.orig_rax;
 
+    const char* syscall_name = get_syscall_name(regs.orig_rax);
+    char buf[100];
+    snprintf(buf, sizeof(buf), "%s{%lld}", (syscall_name == NULL ? "unknown" : syscall_name), regs.orig_rax);
+    
     if ((*syscall_num) == SYS_brk)
         on_brk_enter(pid, regs.rdi);
 
-    fprintf(stderr, "Entering syscall %lld(%lld, %lld, %lld, %lld, %lld, %lld)\n", regs.orig_rax, regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9);
+    fprintf(stderr, "Entering syscall %s(%lld, %lld, %lld, %lld, %lld, %lld)\n", buf, regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9);
 }
 
 void on_syscall_leave(pid_t pid, int64_t syscall_num) {
