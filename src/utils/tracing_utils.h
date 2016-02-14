@@ -7,7 +7,9 @@
 
 #ifdef __x86_64
   typedef unsigned long long int register_type;
-  #define REG_FORMAT "%lld"
+  #define REG_FMT_D  "%lld"
+  #define REG_FMT_U  "%llu"
+  #define REG_FMT_X  "%llx"
 #else
   #error "Sorry, your platform is not supported yet."
 #endif
@@ -24,11 +26,6 @@ struct syscall_info {
     register_type err;
 };
 
-void             memcpy_to_proc(void* src, void* dst, size_t n, pid_t child);
-void           memcpy_from_proc(void* src, void* dst, size_t n, pid_t child);
-
-void              dump_regisers(const struct user_regs_struct* regs);
-void*         get_stack_pointer(const struct user_regs_struct* regs);
 void          extract_registers(pid_t child, struct user_regs_struct* regs);
 void     extract_syscall_params(const struct user_regs_struct* regs, struct syscall_info* out);
 void     extract_syscall_result(pid_t child, const struct user_regs_struct* regs, struct syscall_info* out);
