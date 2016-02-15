@@ -10,7 +10,10 @@ help:
 	@echo "Do not call this make directly."
 	@echo "Use ./build in project root"
 
+.PHONY: all help
+.DEFAULT: all
+
 bin/main/newdetect: obj/main/newdetect.o obj/gen/naming_utils.o
 	${LD} obj/main/newdetect.o obj/gen/naming_utils.o -o bin/main/newdetect
-obj/main/newdetect.o:
+obj/main/newdetect.o: src/main/newdetect.c
 	${CC} -c src/main/newdetect.c -o obj/main/newdetect.o

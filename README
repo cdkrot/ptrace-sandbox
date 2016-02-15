@@ -33,3 +33,10 @@ Please include in your report:
 * Your architecture (example: x86_64, x86, Sparc, ...)
 * strace and newdetect logs on demo programs (aplusb, return-0-noglibc, return-minus-1-c will be enough).
 
+Building
+========
+
+Use "./build all" from project.
+You may also want try "./build --help"
+
+For deeper building explanations see doc/building.txt

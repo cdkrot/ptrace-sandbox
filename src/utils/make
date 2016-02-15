@@ -11,7 +11,7 @@ help:
 	@echo "Use ./build in project root"
 
 .PHONY: all help
-.DEFAULT: help
+.DEFAULT: all
 
 # < Targets >
 obj/utils/associative_array.o: src/utils/associative_array.c src/utils/associative_array.h
