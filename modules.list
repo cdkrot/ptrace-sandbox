@@ -22,8 +22,7 @@
     "gen": {
         "depend": [],
         "build": [
-            "mkdir -p obj/gen src/gen",
-            "cp src/gen-scelet/* src/gen",
+            "./src/gen-scelet/copy_myself.sh",
             "./src/gen/make"
         ],
         "description": "Build generated code"
