@@ -1,0 +1,30 @@
+How to use building system
+==========================
+
+The answer is very simple: goto project root and run
+"./build (modules-list-you-want-to-build)"
+
+"./build --help" will show you all available modules
+
+Internal structure of building system
+=====================================
+
+Building system consists of two layers (tier1 and tier2).
+
+Tier1 is ./build script. It consumes the modules.list file,
+And the list of modules to build from command line.
+
+It resolves intermodular dependencies and runs Tier2
+Building system (by recipes from modules.list)
+
+Tier2 are individual build scripts from ./src/.../
+They are usually make's and they are making individual modules.
+
+Dependencies
+============
+
+Intermodular dependencies are handled by tier2 building system.
+And cross-modular by tier1.
+
+Circular cross-modular dependencies are not allowed.
+And all cross-modular dependencies must be specified explicitly in modules.list

@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+
+ CC=gcc -Wall -Wextra -std=gnu11
+CXX=g++ -Wall -Wextra -std=gnu++11
+ASM=gcc -nostdlib
+
+
+# < Main targets >
+
+all: bin/demos/aplusb bin/demos/return-1-cpp bin/demos/hello bin/demos/return-minus-1-c bin/demos/return-0-noglibc bin/demos/brk-1-noglibc
+
+help:
+	@echo "Do not call this make directly"
+	@echo "Use ./build in project root"
+
+.PHONY: help all
+.DEFAULT: all
+
+# < Targets >
+
+bin/demos/aplusb: src/demos/aplusb.cpp
+	${CXX}  src/demos/aplusb.cpp -o bin/demos/aplusb
+
+bin/demos/return-1-cpp: src/demos/return-1.cpp
+	${CXX} src/demos/return-1.cpp -o bin/demos/return-1-cpp
+
+bin/demos/hello: src/demos/hello.c
+	${CC}  src/demos/hello.c -o bin/demos/hello
+
+bin/demos/return-minus-1-c: src/demos/return-minus-1.c
+	${CC}  src/demos/return-minus-1.c -o bin/demos/return-minus-1-c
+
+bin/demos/return-0-noglibc: src/demos/return-0-noglibc.s
+	${ASM} src/demos/return-0-noglibc.s -o bin/demos/return-0-noglibc
+
+bin/demos/brk-1-noglibc: src/demos/brk-1-noglibc.s
+	${ASM} src/demos/brk-1-noglibc.s -o bin/demos/brk-1-noglibc
+

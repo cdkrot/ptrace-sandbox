@@ -1,0 +1,20 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+CC=gcc -Wall -Wextra -std=gnu11 -Isrc/utils
+
+# < Main targets >
+all: obj/utils/associative_array.o obj/utils/tracing_utils.o
+
+help:
+	@echo "Do not call this make directly"
+	@echo "Use ./build in project root"
+
+.PHONY: all help
+.DEFAULT: help
+
+# < Targets >
+obj/utils/associative_array.o: src/utils/associative_array.c src/utils/associative_array.h
+	${CC} -c src/utils/associative_array.c -o obj/utils/associative_array.o
+obj/utils/tracing_utils.o: src/utils/tracing_utils.c src/utils/tracing_utils.h
+	${CC} -c src/utils/tracing_utils.c -o obj/utils/tracing_utils.o

@@ -1,9 +1,54 @@
 {
+    "clean": {
+        "depend": [],
+        "build": [
+            "rm -rf bin obj src/gen"
+        ],
+        "description": "Cleans build results"
+    },
+    "all": {
+        "depend": ["demos", "gen", "main", "utils"],
+        "build": [],
+        "description": "Build everything"
+    },
+    "demos": {
+        "depend": [],
+        "build": [
+            "mkdir -p bin/demos",
+            "./src/demos/make"
+        ],
+        "description": "Build demos to test detector on"
+    },
+    "gen": {
+        "depend": [],
+        "build": [
+            "mkdir -p obj/gen src/gen",
+            "cp src/gen-scelet/* src/gen",
+            "./src/gen/make"
+        ],
+        "description": "Build generated code"
+    },
+    "utils": {
+        "depend": [],
+        "build": [
+            "mkdir -p obj/utils",
+            "./src/utils/make"
+        ],
+        "description": "Different utilities"
+    },
+    "main": {
+        "depend": ["utils", "gen"],
+        "build": [
+            "mkdir -p obj/main bin/main",
+            "./src/main/make"
+        ],
+        "description": "Build main (ptrace) stuff"
+    },
+    
     "test1": {
         "depend": ["test2"],
         "build": [
-            "echo Test1",
-            "@echo Test1"
+            "echo Test1"
         ],
         "description": "testing module1"
     },

@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+CC=gcc -Wall -Wextra -std=gnu11 -Isrc/gen -Isrc/utils
+LD=gcc
+
+all: bin/main/newdetect
+
+help:
+	@echo "Do not call this make directly."
+	@echo "Use ./build in project root"
+
+bin/main/newdetect: obj/main/newdetect.o obj/gen/naming_utils.o
+	${LD} obj/main/newdetect.o obj/gen/naming_utils.o -o bin/main/newdetect
+obj/main/newdetect.o:
+	${CC} -c src/main/newdetect.c -o obj/main/newdetect.o

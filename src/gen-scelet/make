@@ -1,0 +1,22 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+
+CC=gcc -Wall -Wextra -std=gnu11 -Isrc/gen
+
+# < Main targets >
+
+all: obj/gen/naming_utils.o
+
+help:
+	@echo "Do not use this make directly"
+	@echo "Use ./build in project root"
+
+.PHONY: all help
+.DEFAULT: all
+
+src/gen/naming_utils.c: scripts/gen-naming-utils-c.py res/syscalls.list
+	python3 scripts/gen-naming-utils-c.py < res/syscalls.list > src/gen/naming_utils.c
+
+obj/gen/naming_utils.o: src/gen/naming_utils.c src/gen/naming_utils.h
+	${CC} -c src/gen/naming_utils.c -o obj/gen/naming_utils.o

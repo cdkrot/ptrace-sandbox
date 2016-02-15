@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import sys, json, os
+import sys, json, subprocess
 
 class ModuleBase:
     def __init__(self, name, dep_list, descr):
@@ -18,7 +18,7 @@ class ModuleBase:
         return self.__descr
 
     def run(self):
-        pass
+        return True
 
 class Module(ModuleBase):
     def __init__(self, name, dep_list, run_list, descr):
@@ -28,11 +28,9 @@ class Module(ModuleBase):
     def run(self):
         print ("> ./build {}".format(self.get_name()))
         for line in self.__run_list:
-            if line.startswith("@echo"):
-                print("@ {}".format(line[len("@echo"):].strip()))
-            else:
-                print("> {}".format(line))
-                os.system(line)
+            if subprocess.call(line, shell=True) != 0:
+                return False
+        return True
 
 class HelpPseudoModule(ModuleBase):
     def __init__(self, name, p_modules):
@@ -55,6 +53,7 @@ class HelpPseudoModule(ModuleBase):
         for mod in as_arr:
             nm, desc = mod.get_name(), mod.get_descr()
             print("{}:{}{}".format(nm, " " * (width - len(nm)), desc))
+        return True
 
 class ShowDepsPseudoModule(ModuleBase):
     def __init__(self, name, p_modules):
@@ -68,7 +67,7 @@ class ShowDepsPseudoModule(ModuleBase):
         for mod in self.__p_modules.values():
             as_arr.append(mod)
             width = max(width, len(mod.get_name()))
-        as_arr.sort(key = lambda mod: mod.get_descr())
+        as_arr.sort(key = lambda mod: mod.get_name())
         width += 3
         print("Dependencies of modules:")
         for mod in as_arr:
@@ -76,6 +75,7 @@ class ShowDepsPseudoModule(ModuleBase):
             if deps == "":
                 deps = "--no-deps--"
             print("{}:{}{}".format(nm, " " * (width - len(nm)), deps))
+        return True
 
 # Takes json
 # returns dict from name to Module
@@ -124,7 +124,9 @@ def main(script_name, target_modules):
             used[mod] = 2
             order.append(mod)
     for mod in order:
-        modules[mod].run()
+        if not modules[mod].run():
+            print("Failed to run module {}".format(mod))
+            return
     if len(order) == 0:
         print("No modules found on command line. Try --help")
     
