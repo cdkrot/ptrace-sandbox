@@ -39,23 +39,23 @@ struct tracing_callbacks {
     // called when tracee exits.
     // NOTE: some tracee's may silently disappear without
     // reporting exit, see ptrace(2).
-    // Args: pid of just died process, it's exit code.
-    void (*on_child_exit)(pid_t, int code);
+    // Args: pid of just died process, it's exit code, user data ptr.
+    void (*on_child_exit)(pid_t, int code, void*);
 
     // called when ptrace group stop event happens.
-    // args: pid.
-    void (*on_groupstop)(pid_t pid);
+    // args: pid, user data ptr.
+    void (*on_groupstop)(pid_t pid, void*);
 
     // called when ptrace event happens,
     // args: pid, event id (equal to one of PTRACE_EVENT_...).
-    void (*on_ptrace_event)(pid_t pid, int event);
+    void (*on_ptrace_event)(pid_t pid, int event, void*);
 };
 
 void          extract_registers(pid_t child, struct user_regs_struct* regs);
 void     extract_syscall_params(const struct user_regs_struct* regs, struct syscall_info* out);
-void     extract_syscall_result(pid_t child, const struct user_regs_struct* regs, struct syscall_info* out);
+void     extract_syscall_result(const struct user_regs_struct* regs, struct syscall_info* out);
 
 void     tracing_loop(const struct tracing_callbacks* callbacks, void* userdata);
-
+void     trace_me();
 
 #endif // guard

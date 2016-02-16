@@ -20,6 +20,7 @@
 
 #include <associative_array.h>
 #include "naming_utils.h"
+#include "tracing_utils.h"
 #include "die.h"
 
 #ifndef __x86_64
@@ -27,6 +28,8 @@
 #endif
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
+
+#define UNUSED(x) x __attribute__((unused))
 
 struct {
     bool  was_called_null;
@@ -73,86 +76,92 @@ int ptr_cmp(const void* a, const void* b)
     return -1;
 }
 
+
 struct {
     associative_array mmap_segments;
     uint64_t max_mmap_mem;
     size_t last_mmap_length;
 } mmap_info;
 
+struct userdata {
+    register_type syscall_id;
+};
+
 void mmap_init(void) {
     mmap_info.mmap_segments = NULL;
     mmap_info.max_mmap_mem = 0;
 }
 
-void on_mmap_enter(pid_t pid, struct user_regs_struct regs) {
+void on_mmap_enter(pid_t UNUSED(pid), struct user_regs_struct regs) {
     mmap_info.last_mmap_length = regs.rsi;
 }
 
-void on_mmap_leave(pid_t pid, struct user_regs_struct regs) {
+void on_mmap_leave(pid_t UNUSED(pid), struct user_regs_struct regs) {
     if (regs.rsi < (unsigned long long)(-4095)) {
 //        associative_array_add(mmap_info.mmap_segments,
 //                              associative_array_add_init(sizeof(void*), sizeof(size_t), ptr_cmp, &((void*)regs.rax), &(mmap_info.last_mmap_length)));
     }
 }
 
-void on_munmap_enter(pid_t pid, struct user_regs_struct regs) {
+void on_munmap_enter(pid_t UNUSED(pid), struct user_regs_struct UNUSED(regs)) {
 
 }
 
-void on_munmap_leave(pid_t pid, struct user_regs_struct regs) {
+void on_munmap_leave(pid_t UNUSED(pid), struct user_regs_struct UNUSED(regs)) {
 
 }
 
-void on_signal(pid_t pid, int sig) {
+int on_signal(pid_t pid, int sig, void* UNUSED(userptr)) {
     fprintf(stderr, "Signal: %d in %d\n", sig, (int)(pid));
+    return (sig != SIGTRAP);
 }
 
-void on_syscall_enter(pid_t pid, int64_t* syscall_num) {
+void on_syscall(pid_t pid, int type, void* data_) {
+
+//void on_syscall_enter(pid_t pid, int64_t* syscall_num) {
     struct user_regs_struct regs;
-    ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-    *syscall_num = regs.orig_rax;
+    struct syscall_info     info;
+    struct userdata*        data = (struct userdata*)(data_);
 
-    const char* syscall_name = get_syscall_name(regs.orig_rax);
-    char buf[100];
-    snprintf(buf, sizeof(buf), "%s{%lld}", (syscall_name == NULL ? "unknown" : syscall_name), regs.orig_rax);
+    extract_registers(pid, &regs);
+
+    if (type == 0) { // enter
+        extract_syscall_params(&regs, &info);
+        data->syscall_id = info.id;
+        
+        const char* syscall_name = get_syscall_name(regs.orig_rax);
+        char buf[100];
+        snprintf(buf, sizeof(buf), "%s{%lld}", (syscall_name == NULL ? "unknown" : syscall_name), info.id);
     
-    if ((*syscall_num) == SYS_brk)
-        on_brk_enter(pid, regs.rdi);
-
-    fprintf(stderr, "Entering syscall %s(%lld, %lld, %lld, %lld, %lld, %lld)\n", buf, regs.rdi, regs.rsi, regs.rdx, regs.r10, regs.r8, regs.r9);
+        if (info.id == SYS_brk)
+            on_brk_enter(pid, info.arg1);
+        
+        fprintf(stderr, "Entering syscall %s(%lld, %lld, %lld, %lld, %lld, %lld)\n", buf, info.arg1, info.arg2, info.arg3, info.arg4, info.arg5, info.arg6);
+    } else {
+        extract_syscall_result(&regs, &info);
+        if (info.err == 0)
+            fprintf(stderr, "Leaving syscall, result %lld\n", info.ret);
+        else
+            fprintf(stderr, "Leaving syscall, error %lld\n", info.err);
+        if (data->syscall_id == SYS_brk) {
+            on_brk_leave(pid, regs.rax);
+        }
+    }
 }
 
-void on_syscall_leave(pid_t pid, int64_t syscall_num) {
-    struct user_regs_struct regs;
-    ptrace(PTRACE_GETREGS, pid, NULL, &regs);
-
-    if (sizeof(long) != 8)
-        die(1, "Sorry\n");
-    
-    // negative value in [-4095, -1] means negated errno, otherways it means "noerror", but result.
-    if (regs.rax >= (unsigned long long)(-4095))
-        fprintf(stderr, "Leaving syscall, error: %lld\n", -regs.rax);
-    else
-        fprintf(stderr, "Leaving syscall, result: %lld\n", regs.rax);
-
-    if (syscall_num == SYS_brk)
-        on_brk_leave(pid, regs.rax);
-}
-
-void on_child_exit(pid_t pid, int code) {
+void on_child_exit(pid_t pid, int code, void* UNUSED(user_ptr)) {
     fprintf(stderr, "[%d exited with %d]\n", pid, code);
     fprintf(stderr, "\nMemory statistics:\n");
     fprintf(stderr, "Maximum brk(2) memory: %lu bytes\n", brk_info.max_brk_mem);
     fprintf(stderr, "Maximum mmap(2) memory: <unsupported yet>\n");
 }
 
-void on_groupstop(pid_t pid) {
+void on_groupstop(pid_t pid, void* UNUSED(user_ptr)) {
     fprintf(stderr, "Group stop %d\n", (int)(pid));
 }
 
-void check_errno() {
-    if (errno != 0)
-        die(1, "Got error: %s\n", strerror(errno));
+void on_ptrace_event(pid_t pid, int event, void* UNUSED(user_ptr)) {
+    fprintf(stderr, "Ptrace event %d in %d\n", event, pid);
 }
 
 int main(int argc, char** argv) {
@@ -164,18 +173,7 @@ int main(int argc, char** argv) {
         die(1, "Failed to create process\n");
     if (child == 0) {
         // child code.
-        ptrace(PTRACE_TRACEME, 0, NULL, NULL);
-
-        
-        // we are highly interested in setuping some custom ptrace options,
-        // but this setup is possible only when ptrace already delivered some
-        // event.
-        // since this custom options are containing security ones we want to
-        // do it as fast, as possible (so issue a syscall, which will allow tracer
-        // to do this setup).
-        struct timespec tm;
-        tm.tv_sec = 0, tm.tv_nsec = 10;
-        nanosleep(&tm, NULL);
+        trace_me();
         
         execve(argv[1], argv + 1, NULL);
     } else {
@@ -183,105 +181,15 @@ int main(int argc, char** argv) {
         
         brk_init();
 
-        int insyscall = 0;
-        int options_enabled = 0;
-        int64_t syscall_num;
-        while (1) {
-            int status;
-            child = waitpid((pid_t)(-1), &status, __WALL);
-            if (errno == ECHILD)
-                break;
-            
-            check_errno();
-
-            if (WIFEXITED(status) || WIFSIGNALED(status)) {
-                on_child_exit(child, WEXITSTATUS(status));
-                continue;
-            }
-            
-            if (!WIFSTOPPED(status)) {
-                die(1, "Unknown event\n");
-            }
-            int stopsig = WSTOPSIG(status);
-            int siginfo_queried = 0;
-            siginfo_t sig;
-            
-            int syscallstop = 0;            
-            if (options_enabled && stopsig == (SIGTRAP | 0x80))
-                syscallstop = 1;
-            if (! options_enabled && stopsig == (SIGTRAP)) {
-                // potential syscall stop, need investigation.
-                if (!siginfo_queried) {
-                    siginfo_queried = 1;
-                    ptrace(PTRACE_GETSIGINFO, child, 0, &sig);
-                    check_errno();
-                }
-                syscallstop = (sig.si_code == SIGTRAP || sig.si_code == (SIGTRAP | 0x80));
-            }
-
-            if (syscallstop) {
-                if (!insyscall)
-                    on_syscall_enter(child, &syscall_num), insyscall = 1;
-                else
-                    on_syscall_leave(child, syscall_num), insyscall = 0;
-                if (!options_enabled) {
-                    ptrace(PTRACE_SETOPTIONS, child, NULL,
-                           PTRACE_O_TRACEEXEC | PTRACE_O_TRACEEXIT | PTRACE_O_TRACEFORK | PTRACE_O_TRACEVFORK | PTRACE_O_TRACECLONE | PTRACE_O_TRACESYSGOOD | PTRACE_O_EXITKILL);
-                    options_enabled = 1;
-                    check_errno();
-                }
-                ptrace(PTRACE_SYSCALL, child, NULL, NULL);
-                continue;
-            }
-            
-            if (stopsig == SIGSTOP || stopsig == SIGTSTP || stopsig == SIGTTIN || stopsig == SIGTTOU) {
-                // potential group-stop.
-                if (!siginfo_queried) {
-                    ptrace(PTRACE_GETSIGINFO, child, 0, &sig);
-                    siginfo_queried = 1;
-                }
-                
-                if (errno == EINVAL) {
-                    errno = 0;
-                    on_groupstop(child);
-                    ptrace(PTRACE_SYSCALL, child, NULL, NULL);
-                    continue;
-                }
-            }
-
-            if (WSTOPSIG(status) == SIGTRAP) {
-                // potential PTRACE_EVENT.
-                int ptrace_event = 0;
-                switch (status >> 8) {
-                    case (SIGTRAP | (PTRACE_EVENT_VFORK << 8)):
-                    case (SIGTRAP | (PTRACE_EVENT_FORK << 8)):
-                    case (SIGTRAP | (PTRACE_EVENT_CLONE << 8)):
-                    case (SIGTRAP | (PTRACE_EVENT_VFORK_DONE << 8)):
-                    case (SIGTRAP | (PTRACE_EVENT_EXEC << 8)):
-                    case (SIGTRAP | (PTRACE_EVENT_EXIT << 8)):
-#ifdef PTRACE_EVENT_STOP
-                    case (SIGTRAP | (PTRACE_EVENT_STOP << 8)):
-#endif
-                    case (SIGTRAP | (PTRACE_EVENT_SECCOMP << 8)):
-                        ptrace_event = 1;
-                }
-                
-                if (ptrace_event) {
-                    fprintf(stderr, "Ignoring PTRACE_EVENT_...\n");
-                    ptrace(PTRACE_SYSCALL, child, NULL, NULL);
-                    continue;
-                }
-            }
-            
-            on_signal(child, stopsig);
-            // For unknown reason detector detects weird SIGTRAP event,
-            // at the very begining of executions, further investigations lead
-            // to ptrace manpage, saying: that "SIGTRAP was delivered as a result of userspace action..."
-            // [See it yourself].
-            // Anyway, delivering this siganl results in tracee instant death.
-            // so don't deliver SIGTRAP's now.
-            ptrace(PTRACE_SYSCALL, child, NULL, (stopsig == SIGTRAP ? 0 : stopsig));
-        }
+        struct tracing_callbacks callbacks;
+        struct userdata data;
+        callbacks.on_signal       = on_signal;
+        callbacks.on_syscall      = on_syscall;
+        callbacks.on_child_exit   = on_child_exit;
+        callbacks.on_groupstop    = on_groupstop;
+        callbacks.on_ptrace_event = on_ptrace_event;
+        
+        tracing_loop(&callbacks, &data); 
     }
     
     return 0;

@@ -2,9 +2,14 @@
 #include "die.h"
 #include <sys/ptrace.h>
 #include <sys/user.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <errno.h>
+#include <signal.h>
 #include <stdio.h>
 #include <assert.h>
 #include <string.h>
+#include <time.h>
 
 // TODO: move architecture-dependent code in separate file or module
 #if defined(__x86_64)
@@ -23,18 +28,36 @@ void extract_syscall_params(const struct user_regs_struct* regs, struct syscall_
     out->arg6 = regs->r9;
 }
 
-int is_negated_errorno(register_type code) {
+int is_negated_errno(register_type code) {
     return code >= (register_type)(-4095);
     // yep, it's magic number.
     // please consult glibc and linux kernel for explanations
 }
 
-void extract_syscall_result(pid_t child, const struct user_regs_struct* regs, struct syscall_info* out) {
-    // not implemented yet
-    // See newdetect.c
+void extract_syscall_result(const struct user_regs_struct* regs, struct syscall_info* out) {
+    if (is_negated_errno(regs->rax))
+        out->err = -regs->rax;
+    else
+        out->err = 0, out->ret = regs->rax;
 }
 
 #endif
+
+void trace_me() {
+    ptrace(PTRACE_TRACEME, 0, NULL, NULL);
+
+    // we are highly interested in setuping some custom ptrace options,
+    // but this setup is possible only when ptrace already delivered some
+    // event.
+    // since this custom options are containing security ones we want to
+    // do it as fast, as possible (so issue a syscall, which will allow tracer
+    // to do this setup).
+
+    // TODO: unfortunately doesn't track any syscalls before execve
+    struct timespec tm;
+    tm.tv_sec = 0, tm.tv_nsec = 10;
+    nanosleep(&tm, NULL);
+}
 
 void tracing_loop(const struct tracing_callbacks* callbacks, void* userdata) {
     // TODO: setup options of child processes too.
@@ -43,14 +66,16 @@ void tracing_loop(const struct tracing_callbacks* callbacks, void* userdata) {
     int options_enabled = 0;
     while (1) {
         int status;
-        child = waitpid((pid_t)(-1), &status, __WALL);
-        if (errno == ECHILD)
+        pid_t child = waitpid((pid_t)(-1), &status, __WALL);
+        if (errno == ECHILD) {
+            errno = 0;
             break;
+        }
         
         check_errno(1);
         
         if (WIFEXITED(status) || WIFSIGNALED(status)) {
-            callbacks->on_child_exit(child, WEXITSTATUS(status));
+            callbacks->on_child_exit(child, WEXITSTATUS(status), userdata);
             continue;
         }
             
@@ -97,7 +122,7 @@ void tracing_loop(const struct tracing_callbacks* callbacks, void* userdata) {
                 
             if (errno == EINVAL) {
                 errno = 0;
-                callbacks->on_groupstop(child);
+                callbacks->on_groupstop(child, userdata);
                 ptrace(PTRACE_SYSCALL, child, NULL, NULL);
                 continue;
             }
@@ -127,13 +152,13 @@ void tracing_loop(const struct tracing_callbacks* callbacks, void* userdata) {
                 if (ptrace_event) {
                     // TODO: More complex handling here.
                     // For example we want to set options for newly created processes and so on.
-                    callbacks->on_ptrace_event(child, ptrace_event);
+                    callbacks->on_ptrace_event(child, ptrace_event, userdata);
                     ptrace(PTRACE_SYSCALL, child, NULL, NULL);
                     continue;
                 }
             }
             
-        if (callbacks->on_signal(child, stopsig))
+        if (callbacks->on_signal(child, stopsig, userdata))
             ptrace(PTRACE_SYSCALL, child, NULL, stopsig);
         else
             ptrace(PTRACE_SYSCALL, child, NULL, 0);
