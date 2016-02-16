@@ -36,7 +36,7 @@ Please include in your report:
 Building
 ========
 
-Use "./build all" from project.
+Use "./build all" from project root.
 You may also want try "./build --help"
 
 For deeper building explanations see doc/building.txt

@@ -114,8 +114,6 @@ void tracing_loop(const struct tracing_callbacks* callbacks, void* userdata) {
             continue;
         }
 
-        insyscall = 0;
-
         if (stopsig == SIGSTOP || stopsig == SIGTSTP || stopsig == SIGTTIN || stopsig == SIGTTOU) {
             // potential group-stop.
             if (!siginfo_queried) {
