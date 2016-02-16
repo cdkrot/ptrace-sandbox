@@ -14,6 +14,6 @@ help:
 .DEFAULT: all
 
 bin/main/newdetect: obj/main/newdetect.o obj/gen/naming_utils.o
-	${LD} obj/main/newdetect.o obj/gen/naming_utils.o -o bin/main/newdetect
-obj/main/newdetect.o: src/main/newdetect.c
+	${LD} obj/main/newdetect.o obj/gen/naming_utils.o -rdynamic -o bin/main/newdetect
+obj/main/newdetect.o: src/main/newdetect.c src/utils/associative_array.h src/utils/die.h src/utils/tracing_utils.h src/gen/naming_utils.h
 	${CC} -c src/main/newdetect.c -o obj/main/newdetect.o

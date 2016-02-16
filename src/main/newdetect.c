@@ -20,30 +20,13 @@
 
 #include <associative_array.h>
 #include "naming_utils.h"
+#include "die.h"
 
 #ifndef __x86_64
 #error Only x86-64 is supported now
 #endif
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
-
-__attribute__((noreturn)) void die(int exit_code, const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
-    va_end(args);
-
-    fprintf(stderr, "Call trace:\n");
-    void* buf[100];
-    int sz = backtrace(buf, 100);
-    for (int i = 0, j = sz - 1; i < j; ++i, --j) {
-        void* tmp = buf[i];
-        buf[i] = buf[j], buf[j] = tmp;
-    }
-    backtrace_symbols_fd(buf, sz, 2);
-    
-    exit(exit_code);
-}
 
 struct {
     bool  was_called_null;

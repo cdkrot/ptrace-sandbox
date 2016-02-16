@@ -26,9 +26,36 @@ struct syscall_info {
     register_type err;
 };
 
+struct tracing_callbacks {
+    // called when tracee recieve's signal.
+    // args: pid, signal, user data ptr.
+    // return: should deliver signal.
+    int (*on_signal)(pid_t, int, void*);
+
+    // called when tracee enter's or leave's syscall.
+    // args: pid, entering (0) or leaving(1), user data ptr
+    void (*on_syscall)(pid_t, int, void*);
+
+    // called when tracee exits.
+    // NOTE: some tracee's may silently disappear without
+    // reporting exit, see ptrace(2).
+    // Args: pid of just died process, it's exit code.
+    void (*on_child_exit)(pid_t, int code);
+
+    // called when ptrace group stop event happens.
+    // args: pid.
+    void (*on_groupstop)(pid_t pid);
+
+    // called when ptrace event happens,
+    // args: pid, event id (equal to one of PTRACE_EVENT_...).
+    void (*on_ptrace_event)(pid_t pid, int event);
+};
+
 void          extract_registers(pid_t child, struct user_regs_struct* regs);
 void     extract_syscall_params(const struct user_regs_struct* regs, struct syscall_info* out);
 void     extract_syscall_result(pid_t child, const struct user_regs_struct* regs, struct syscall_info* out);
+
+void     tracing_loop(const struct tracing_callbacks* callbacks, void* userdata);
 
 
 #endif // guard
