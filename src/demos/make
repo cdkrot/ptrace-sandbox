@@ -9,7 +9,7 @@ ASM=gcc -nostdlib
 
 # < Main targets >
 
-all: bin/demos/aplusb bin/demos/return-1-cpp bin/demos/hello bin/demos/return-minus-1-c bin/demos/return-0-noglibc bin/demos/brk-1-noglibc bin/demos/sleep
+all: bin/demos/aplusb bin/demos/return-1-cpp bin/demos/hello bin/demos/return-minus-1-c bin/demos/return-0-noglibc bin/demos/brk-1-noglibc bin/demos/sleep bin/demos/forks bin/demos/forks-noglibc
 
 help:
 	@echo "Do not call this make directly"
@@ -40,3 +40,9 @@ bin/demos/brk-1-noglibc: src/demos/brk-1-noglibc.s
 
 bin/demos/sleep: src/demos/sleep.c
 	${CC} src/demos/sleep.c -o bin/demos/sleep
+
+bin/demos/forks: src/demos/forks.c
+	${CC} src/demos/forks.c -o bin/demos/forks
+
+bin/demos/forks-noglibc: src/demos/forks-noglibc.s
+	${ASM} src/demos/forks-noglibc.s -o bin/demos/forks-noglibc
