@@ -1,6 +1,20 @@
 #!/usr/bin/python3
 
-import sys, json, subprocess
+import sys, json, subprocess, os.path, os, time, shutil
+
+def update_build_info(name):
+    dirname = os.path.join(".build.tmp", "build.time")
+    if not os.path.isdir(dirname):
+        os.makedirs(dirname)
+    path = os.path.join(dirname, name)
+    f = open(path, "w")
+    f.write(time.asctime() + '\n')
+    f.close()
+
+def clean_build_info():
+    directory = os.path.join(".build.tmp")
+    if os.path.exists(directory):
+        shutil.rmtree(directory)
 
 class ModuleBase:
     def __init__(self, name, dep_list, descr):
@@ -20,17 +34,31 @@ class ModuleBase:
     def run(self):
         return True
 
+    def needs_rebuild(self):
+        return True
+
+    def is_hidden(self):
+        return False
+
 class Module(ModuleBase):
-    def __init__(self, name, dep_list, run_list, descr):
+    def __init__(self, name, dep_list, run_list, rebuild_if, descr):
         super().__init__(name, dep_list, descr)
-        self.__run_list = run_list
+        self.__run_list   = run_list
+        self.__rebuild_if = rebuild_if
 
     def run(self):
-        print ("> ./build {}".format(self.get_name()))
         for line in self.__run_list:
             if subprocess.call(line, shell=True) != 0:
                 return False
+        update_build_info(self.get_name())
         return True
+    
+    def needs_rebuild(self):
+        if self.__rebuild_if == None:
+            return True
+        else:
+            # return value 0 means "rebuild", any other "do not rebuild"
+            return subprocess.call(self.__rebuild_if, shell=True) == 0
 
 class HelpPseudoModule(ModuleBase):
     def __init__(self, name, p_modules):
@@ -44,8 +72,9 @@ class HelpPseudoModule(ModuleBase):
         as_arr = []
         
         for mod in self.__p_modules.values():
-            as_arr.append(mod)
-            width = max(width, len(mod.get_name()))
+            if not mod.is_hidden():
+                as_arr.append(mod)
+                width = max(width, len(mod.get_name()))
 
         width += 3
         as_arr.sort(key=lambda mod: mod.get_name())
@@ -65,8 +94,9 @@ class ShowDepsPseudoModule(ModuleBase):
         width = 0
 
         for mod in self.__p_modules.values():
-            as_arr.append(mod)
-            width = max(width, len(mod.get_name()))
+            if not mod.is_hidden():
+                as_arr.append(mod)
+                width = max(width, len(mod.get_name()))
         as_arr.sort(key = lambda mod: mod.get_name())
         width += 3
         print("Dependencies of modules:")
@@ -77,25 +107,35 @@ class ShowDepsPseudoModule(ModuleBase):
             print("{}:{}{}".format(nm, " " * (width - len(nm)), deps))
         return True
 
+class CleanPseudoModule(ModuleBase):
+    def __init__(self, name):
+        super().__init__(name, [], "Cleans .build.tmp dir")
+    def run(self):
+        clean_build_info()
+        return True
+    def is_hidden(self):
+        return True
+    
 # Takes json
 # returns dict from name to Module
 def parse_modules(the_json):
     res = dict()
 
     for (key,val) in the_json.items():
-        if key.startswith("--"):
-            raise Exception("User modules can't start from '--', name: {}".format(key))
+        if key.startswith("-"):
+            raise Exception("User modules can't start from '-', name: {}".format(key))
         if not isinstance(key, str) or not isinstance(val, dict):
             raise Exception("Wrong syntax, module name must be string and module description must be obj")
         if res.get(key) != None:
             raise Exception("Repeated modulename '{}'".format(key))
         if val.get("depend") == None or val.get("build") == None or val.get("description") == None:
             raise Exception("Module '{}' has incomplete definition, please provide 'depend', 'build', 'description' fields".format(key))
-        mod = Module(key, val.get("depend"), val.get("build"), val.get("description"))
+        mod = Module(key, val.get("depend"), val.get("build"), val.get("build_if"), val.get("description"))
         res[key] = mod
 
     res["--help"]     = HelpPseudoModule("--help", res)
     res["--showdeps"] = ShowDepsPseudoModule("--showdeps", res)
+    res["---clean"]   = CleanPseudoModule("---clean")
     return res
 
 def dfs(modules, mod, used, order):
@@ -124,7 +164,10 @@ def main(script_name, target_modules):
             used[mod] = 2
             order.append(mod)
     for mod in order:
-        if not modules[mod].run():
+        print ("> ./build {}".format(mod))
+        if not modules[mod].needs_rebuild():
+            print("Up to date =)")
+        elif not modules[mod].run():
             print("Failed to run module {}".format(mod))
             return
     if len(order) == 0:

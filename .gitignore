@@ -2,6 +2,9 @@
 bin
 obj
 
+# < Build system tmp files >
+.build.tmp
+
 # < generated dirs >
 src/gen
 

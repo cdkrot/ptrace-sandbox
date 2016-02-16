@@ -13,7 +13,7 @@ help:
 .PHONY: all help
 .DEFAULT: all
 
-bin/main/newdetect: obj/main/newdetect.o obj/gen/naming_utils.o
+bin/main/newdetect: obj/main/newdetect.o
 	${LD} obj/main/newdetect.o obj/gen/naming_utils.o -rdynamic -o bin/main/newdetect
-obj/main/newdetect.o: src/main/newdetect.c src/utils/associative_array.h src/utils/die.h src/utils/tracing_utils.h src/gen/naming_utils.h
+obj/main/newdetect.o: src/main/newdetect.c .build.tmp/build.time/gen .build.tmp/build.time/utils
 	${CC} -c src/main/newdetect.c -o obj/main/newdetect.o

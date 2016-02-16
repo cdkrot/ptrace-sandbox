@@ -2,7 +2,7 @@ How to use building system
 ==========================
 
 The answer is very simple: goto project root and run
-"./build (modules-list-you-want-to-build)"
+"./build (modules-you-want-to-build)"
 
 "./build --help" will show you all available modules
 
@@ -28,3 +28,43 @@ And cross-modular by tier1.
 
 Circular cross-modular dependencies are not allowed.
 And all cross-modular dependencies must be specified explicitly in modules.list
+
+.build.tmp
+==========
+
+It is a special dir created by tier1 build system, it contains this files:
+.build.tmp/build.time/modulename:
+   Contains time of last succesful build in textual, but implementation defined format.
+   It updated each time module got succesfully rebuilt (not skipped),
+   it is created for purposes of Tier2 build system: you can add this file as a dependency to your targets,
+   so your module will automatically trigger build, each time one of the deps is build.
+
+Also special pseudo module ---clean provided, make it as a dependency of your user module clean,
+And this directory will be cleaned each time you do "./build clean". [See pseudo modules below]
+
+Modules.list
+============
+
+modules.list contains a json, which defines tier1 targets and their recipes.
+Module definition consists of following fields:
+* "depend" (required):       array of names of modules your module depends on.
+* "build" (required):        array of shell commands to build your module.
+* "description" (required):  User-friendly description of your module, used in --help reports.
+
+* "build_if" (optional):     if omitted, then module will be built each time,
+                             if specified, the folowing command will be executed and exit code tested with zero.
+                             Zero exit code means "needs to be build"
+
+Pseudo modules
+==============
+
+Build system provides some pseudo modules, with names starting with minuses (such names prohibited for user modules).
+Number of minuses in pseudo module name encodes it's type:
+-name:   reserved for command line options
+--name:  pseudo modules for calling from command line like any other module.
+---name: pseudo modules for use by user modules, hidden by --help and --showdeps.
+
+At the moment following pseudo modules provided:
+--help:      displays help and available modules
+--showdeps:  displays dependencies of available modules.
+---clean:    hidden module, which cleans the .build.tmp dir.

@@ -1,6 +1,6 @@
 {
     "clean": {
-        "depend": [],
+        "depend": ["---clean"],
         "build": [
             "rm -rf bin obj src/gen"
         ],
@@ -17,15 +17,16 @@
             "mkdir -p bin/demos",
             "./src/demos/make"
         ],
-        "description": "Build demos to test detector on"
+        "description": "Build demos to test detector on",
+        "build_if": "! ./src/demos/make -q"
     },
     "gen": {
         "depend": [],
         "build": [
-            "./src/gen-scelet/copy_myself.sh",
             "./src/gen/make"
         ],
-        "description": "Build generated code"
+        "description": "Build generated code",
+        "build_if": "./src/gen-scelet/copy_myself.sh && ! ./src/gen/make -q"
     },
     "utils": {
         "depend": [],
@@ -33,7 +34,8 @@
             "mkdir -p obj/utils",
             "./src/utils/make"
         ],
-        "description": "Different utilities"
+        "description": "Different utilities",
+        "build_if": "! ./src/utils/make -q"
     },
     "main": {
         "depend": ["utils", "gen"],
@@ -41,21 +43,7 @@
             "mkdir -p obj/main bin/main",
             "./src/main/make"
         ],
-        "description": "Build main (ptrace) stuff"
-    },
-    
-    "test1": {
-        "depend": ["test2"],
-        "build": [
-            "echo Test1"
-        ],
-        "description": "testing module1"
-    },
-    "test2": {
-        "depend": [],
-        "build": [
-            "echo Test2"
-        ],
-        "description": "testing module2"
+        "description": "Build main (ptrace) stuff",
+        "build_if": "! ./src/main/make -q"
     }
 }
