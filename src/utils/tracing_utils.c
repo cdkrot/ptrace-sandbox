@@ -3,6 +3,7 @@
 #include <sys/ptrace.h>
 #include <sys/user.h>
 #include <sys/types.h>
+#include <sys/syscall.h>
 #include <sys/wait.h>
 #include <errno.h>
 #include <signal.h>
@@ -53,9 +54,11 @@ void trace_me() {
     // do it as fast, as possible (so issue a syscall, which will allow tracer
     // to do this setup).
 
-    // TODO: unfortunately doesn't track any syscalls before execve
+    kill(getpid(), SIGSTOP);
+    
+    syscall(SYS_brk, NULL);
     struct timespec tm;
-    tm.tv_sec = 0, tm.tv_nsec = 10;
+    tm.tv_sec = 1, tm.tv_nsec = 10;
     nanosleep(&tm, NULL);
 }
 
