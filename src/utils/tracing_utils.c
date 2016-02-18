@@ -144,9 +144,6 @@ void tracing_loop(const struct tracing_callbacks* callbacks, void* userdata) {
                 GEN_PTRACE_EVENT_HANDLER(PTRACE_EVENT_VFORK_DONE);
                 GEN_PTRACE_EVENT_HANDLER(PTRACE_EVENT_EXEC);
                 GEN_PTRACE_EVENT_HANDLER(PTRACE_EVENT_EXIT);
-#ifdef PTRACE_EVENT_STOP
-                GEN_PTRACE_EVENT_HANDLER(PTRACE_EVENT_STOP);
-#endif
                 GEN_PTRACE_EVENT_HANDLER(PTRACE_EVENT_SECCOMP);
             }
             

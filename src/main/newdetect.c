@@ -111,14 +111,19 @@ void on_munmap_leave(pid_t UNUSED(pid), struct user_regs_struct UNUSED(regs)) {
 
 }
 
+void combined_name(char* buf, size_t buf_sz, long id, const char* (*get_name)(long)) {
+    const char* friendlyname = get_name(id);
+    snprintf(buf, buf_sz, "%s{%ld}", (friendlyname == NULL ? "unknown" : friendlyname), id);
+}
+
 int on_signal(pid_t pid, int sig, void* UNUSED(userptr)) {
-    fprintf(stderr, "Signal: %d in %d\n", sig, (int)(pid));
+    char buf[100];
+    combined_name(buf, sizeof(buf), sig, get_signal_name);
+    fprintf(stderr, "Signal: %s in %d\n", buf, (int)(pid));
     return (sig != SIGTRAP);
 }
 
 void on_syscall(pid_t pid, int type, void* data_) {
-
-//void on_syscall_enter(pid_t pid, int64_t* syscall_num) {
     struct user_regs_struct regs;
     struct syscall_info     info;
     struct userdata*        data = (struct userdata*)(data_);
@@ -129,9 +134,8 @@ void on_syscall(pid_t pid, int type, void* data_) {
         extract_syscall_params(&regs, &info);
         data->syscall_id = info.id;
         
-        const char* syscall_name = get_syscall_name(regs.orig_rax);
         char buf[100];
-        snprintf(buf, sizeof(buf), "%s{%lld}", (syscall_name == NULL ? "unknown" : syscall_name), info.id);
+        combined_name(buf, sizeof(buf), info.id, get_syscall_name);
     
         if (info.id == SYS_brk)
             on_brk_enter(pid, info.arg1);
@@ -161,7 +165,9 @@ void on_groupstop(pid_t pid, void* UNUSED(user_ptr)) {
 }
 
 void on_ptrace_event(pid_t pid, int event, void* UNUSED(user_ptr)) {
-    fprintf(stderr, "Ptrace event %d in %d\n", event, pid);
+    char buf[100];
+    combined_name(buf, sizeof(buf), event, get_ptraceevent_name);
+    fprintf(stderr, "Ptrace event %s in %d\n", buf, pid);
 }
 
 int main(int argc, char** argv) {

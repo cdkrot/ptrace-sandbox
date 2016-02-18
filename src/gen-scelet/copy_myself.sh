@@ -10,7 +10,7 @@ fi
 for full_file in $(find ./src/gen-scelet -type f | grep -v copy_myself.sh); do
     file=$(basename $full_file)
     if [ -f ./src/gen/$file ]; then
-        cmp $full_file ./src/gen/$file
+        cmp -s $full_file ./src/gen/$file 
         if [ $? -eq 1 ]; then
             cp $full_file ./src/gen/$file
         fi

@@ -15,8 +15,8 @@ help:
 .PHONY: all help
 .DEFAULT: all
 
-src/gen/naming_utils.c: src/gen/gen-naming-utils-c.py src/gen/syscalls.list
-	python3 src/gen/gen-naming-utils-c.py < src/gen/syscalls.list > src/gen/naming_utils.c
+src/gen/naming_utils.c: src/gen/
+	echo "cd ./src/gen && ./gen-naming-utils-c.py > naming_utils.c" | sh
 
-obj/gen/naming_utils.o: src/gen/naming_utils.c src/gen/naming_utils.h
+obj/gen/naming_utils.o: src/gen/naming_utils.c
 	${CC} -c src/gen/naming_utils.c -o obj/gen/naming_utils.o
