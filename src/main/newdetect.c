@@ -31,84 +31,43 @@
 
 #define UNUSED(x) x __attribute__((unused))
 
-struct {
-    bool  was_called_null;
-    void* current_break;
-    void* break_beginning;
-    uint64_t max_brk_mem;
-} brk_info;
-
-void brk_init(void) {
-    brk_info.was_called_null = false;
-    brk_info.current_break = NULL;
-    brk_info.break_beginning = NULL;
-    brk_info.max_brk_mem = 0;
-}
-
-void on_brk_enter(pid_t pid, uint64_t addr) {
-    if (!brk_info.was_called_null && (void*)addr != NULL) {
-        ptrace(PTRACE_KILL, pid, NULL, NULL);
-        die(1, "Tracee attempted to call brk(%p) without previous brk(NULL). Killed.\n", (void*)addr);
-    }
-    if (!brk_info.was_called_null)
-        brk_info.was_called_null = true;
-}
-
-void on_brk_leave(pid_t pid, uint64_t result) {
-    assert(pid);
-    if (result < (unsigned long long)(-4095)) {
-        if (brk_info.current_break == NULL) {
-            brk_info.current_break = (void*)result;
-            brk_info.break_beginning = (void*)result;
-        } else {
-            brk_info.current_break = (void*)result;
-            brk_info.max_brk_mem = max(brk_info.max_brk_mem, result - (uint64_t)brk_info.break_beginning);
-        }
-    }
-}
-
-int ptr_cmp(const void* a, const void* b)
-{ // 0_0 ???
-    if ((*((void**) a)) > (*((void**) b)))
-        return 1;
-    else if ((*((void**) a)) == (*((void**) b)))
-        return 0;
-    return -1;
-}
-
-
-struct {
-    associative_array mmap_segments;
-    uint64_t max_mmap_mem;
-    size_t last_mmap_length;
-} mmap_info;
-
 struct userdata {
     register_type syscall_id;
+    unsigned long max_mem;
 };
 
-void mmap_init(void) {
-    mmap_info.mmap_segments = NULL;
-    mmap_info.max_mmap_mem = 0;
+struct {
+    unsigned long page_size;
+} static_data;
+
+/* This is a structure used to read values from /proc/[pid]/statm. Those values
+ * are represented *in pages*. See proc(5) for details. */
+
+struct statm_info {
+    unsigned long size;     /* total program size (same as VmSize in /proc/[pid]/status) */
+    unsigned long resident; /* resident set size (same as VmRSS in /proc/[pid]/status) */
+    unsigned long share;    /* shared pages (i.e. backed by a file) */
+    unsigned long text;     /* text (code) */
+    unsigned long lib;      /* library (unused in Linux 2.6) */
+    unsigned long data;     /* data + stack */
+    unsigned long dt;       /* dirty pages (unused in Linux 2.6 */
+};
+
+struct statm_info get_process_statm_info(pid_t pid) {
+    struct statm_info ret;
+    char filename[100];
+    sprintf(filename, "/proc/%d/statm", pid);
+    FILE* procstatm = fopen(filename, "r");
+    fscanf(procstatm, "%lu %lu %lu %lu %lu %lu %lu", &ret.size, &ret.resident, &ret.share, &ret.text, &ret.lib, &ret.data, &ret.dt);
+    fclose(procstatm);
+    return ret;
 }
 
-void on_mmap_enter(pid_t UNUSED(pid), struct user_regs_struct regs) {
-    mmap_info.last_mmap_length = regs.rsi;
-}
+void check_memory_usage(pid_t pid, void* data_) {
+    struct userdata* data = (struct userdata*)data_;
 
-void on_mmap_leave(pid_t UNUSED(pid), struct user_regs_struct regs) {
-    if (regs.rsi < (unsigned long long)(-4095)) {
-//        associative_array_add(mmap_info.mmap_segments,
-//                              associative_array_add_init(sizeof(void*), sizeof(size_t), ptr_cmp, &((void*)regs.rax), &(mmap_info.last_mmap_length)));
-    }
-}
-
-void on_munmap_enter(pid_t UNUSED(pid), struct user_regs_struct UNUSED(regs)) {
-
-}
-
-void on_munmap_leave(pid_t UNUSED(pid), struct user_regs_struct UNUSED(regs)) {
-
+    struct statm_info statm = get_process_statm_info(pid);
+    data->max_mem = max(data->max_mem, statm.size * static_data.page_size);
 }
 
 void combined_name(char* buf, size_t buf_sz, long id, const char* (*get_name)(long)) {
@@ -133,31 +92,28 @@ void on_syscall(pid_t pid, int type, void* data_) {
     if (type == 0) { // enter
         extract_syscall_params(&regs, &info);
         data->syscall_id = info.id;
-        
+
         char buf[100];
         combined_name(buf, sizeof(buf), info.id, get_syscall_name);
-    
-        if (info.id == SYS_brk)
-            on_brk_enter(pid, info.arg1);
-        
+
         fprintf(stderr, "Entering syscall %s(%lld, %lld, %lld, %lld, %lld, %lld)\n", buf, info.arg1, info.arg2, info.arg3, info.arg4, info.arg5, info.arg6);
     } else {
         extract_syscall_result(&regs, &info);
+        
+        if (data->syscall_id == SYS_brk || data->syscall_id == SYS_mmap || data->syscall_id == SYS_munmap)
+            check_memory_usage(pid, data_);
+
         if (info.err == 0)
             fprintf(stderr, "Leaving syscall, result %lld\n", info.ret);
         else
             fprintf(stderr, "Leaving syscall, error %lld\n", info.err);
-        if (data->syscall_id == SYS_brk) {
-            on_brk_leave(pid, regs.rax);
-        }
     }
 }
 
-void on_child_exit(pid_t pid, int code, void* UNUSED(user_ptr)) {
+void on_child_exit(pid_t pid, int code, void* data_) {
+    struct userdata* data = (struct userdata*)data_;
     fprintf(stderr, "[%d exited with %d]\n", pid, code);
-    fprintf(stderr, "\nMemory statistics:\n");
-    fprintf(stderr, "Maximum brk(2) memory: %lu bytes\n", brk_info.max_brk_mem);
-    fprintf(stderr, "Maximum mmap(2) memory: <unsupported yet>\n");
+    fprintf(stderr, "max memory used: %lu bytes (%lu kb)\n", data->max_mem, data->max_mem / 1024);
 }
 
 void on_groupstop(pid_t pid, void* UNUSED(user_ptr)) {
@@ -185,7 +141,7 @@ int main(int argc, char** argv) {
     } else {
         // parent code.
         
-        brk_init();
+        static_data.page_size = getpagesize();
 
         struct tracing_callbacks callbacks;
         struct userdata data;
