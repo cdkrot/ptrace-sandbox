@@ -4,7 +4,7 @@
 CC=gcc -Wall -Wextra -std=gnu11 -Isrc/utils
 
 # < Main targets >
-all: obj/utils/associative_array.o obj/utils/tracing_utils.o obj/utils/die.o
+all: obj/utils/associative_array.o obj/utils/tracing_utils.o obj/utils/die.o obj/utils/read_proc.o
 
 help:
 	@echo "Do not call this make directly"
@@ -21,3 +21,5 @@ obj/utils/tracing_utils.o: src/utils/
 	${CC} -c src/utils/tracing_utils.c -o obj/utils/tracing_utils.o
 obj/utils/die.o: src/utils
 	${CC} -c src/utils/die.c -o obj/utils/die.o
+obj/utils/read_proc.o: src/utils/
+	${CC} -c src/utils/read_proc.c -o obj/utils/read_proc.o

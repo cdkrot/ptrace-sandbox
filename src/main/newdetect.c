@@ -22,6 +22,7 @@
 #include "naming_utils.h"
 #include "tracing_utils.h"
 #include "die.h"
+#include "read_proc.h"
 
 #ifndef __x86_64
 #error Only x86-64 is supported now
@@ -39,29 +40,6 @@ struct userdata {
 struct {
     unsigned long page_size;
 } static_data;
-
-/* This is a structure used to read values from /proc/[pid]/statm. Those values
- * are represented *in pages*. See proc(5) for details. */
-
-struct statm_info {
-    unsigned long size;     /* total program size (same as VmSize in /proc/[pid]/status) */
-    unsigned long resident; /* resident set size (same as VmRSS in /proc/[pid]/status) */
-    unsigned long share;    /* shared pages (i.e. backed by a file) */
-    unsigned long text;     /* text (code) */
-    unsigned long lib;      /* library (unused in Linux 2.6) */
-    unsigned long data;     /* data + stack */
-    unsigned long dt;       /* dirty pages (unused in Linux 2.6 */
-};
-
-struct statm_info get_process_statm_info(pid_t pid) {
-    struct statm_info ret;
-    char filename[100];
-    sprintf(filename, "/proc/%d/statm", pid);
-    FILE* procstatm = fopen(filename, "r");
-    fscanf(procstatm, "%lu %lu %lu %lu %lu %lu %lu", &ret.size, &ret.resident, &ret.share, &ret.text, &ret.lib, &ret.data, &ret.dt);
-    fclose(procstatm);
-    return ret;
-}
 
 void check_memory_usage(pid_t pid, void* data_) {
     struct userdata* data = (struct userdata*)data_;
@@ -96,17 +74,17 @@ void on_syscall(pid_t pid, int type, void* data_) {
         char buf[100];
         combined_name(buf, sizeof(buf), info.id, get_syscall_name);
 
-        fprintf(stderr, "Entering syscall %s(%lld, %lld, %lld, %lld, %lld, %lld)\n", buf, info.arg1, info.arg2, info.arg3, info.arg4, info.arg5, info.arg6);
+//        fprintf(stderr, "Entering syscall %s(%lld, %lld, %lld, %lld, %lld, %lld)\n", buf, info.arg1, info.arg2, info.arg3, info.arg4, info.arg5, info.arg6);
     } else {
         extract_syscall_result(&regs, &info);
         
-        if (data->syscall_id == SYS_brk || data->syscall_id == SYS_mmap || data->syscall_id == SYS_munmap)
+/*        if (data->syscall_id == SYS_brk || data->syscall_id == SYS_mmap || data->syscall_id == SYS_munmap)
             check_memory_usage(pid, data_);
 
         if (info.err == 0)
             fprintf(stderr, "Leaving syscall, result %lld\n", info.ret);
         else
-            fprintf(stderr, "Leaving syscall, error %lld\n", info.err);
+            fprintf(stderr, "Leaving syscall, error %lld\n", info.err);*/
     }
 }
 

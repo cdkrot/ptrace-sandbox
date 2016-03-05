@@ -14,14 +14,15 @@ Demos to test on
 * return-1-cpp, return +1, c++.
 * return-0-noglibc, return 0, no system calls performed, asm.
 * hello, Guess what, c.
+* malloc, just eats a large bite of memory, c.
+* million-of-mmaps, guess what it does, c.
 
 Requirements
 ============
 
 * Linux kernel and gnu libc, recent enough.
+* procfs enabled in kernel.
 * At the moment only x86_64 architecture supported.
-* Program should call brk(NULL) before trying to change its break. Otherwise, it would be killed.
-  [note]: You REALLY want to call brk(NULL)!
 
 How to reportbug
 ================
