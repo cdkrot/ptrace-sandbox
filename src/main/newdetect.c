@@ -74,17 +74,17 @@ void on_syscall(pid_t pid, int type, void* data_) {
         char buf[100];
         combined_name(buf, sizeof(buf), info.id, get_syscall_name);
 
-//        fprintf(stderr, "Entering syscall %s(%lld, %lld, %lld, %lld, %lld, %lld)\n", buf, info.arg1, info.arg2, info.arg3, info.arg4, info.arg5, info.arg6);
+        fprintf(stderr, "Entering syscall %s(%lld, %lld, %lld, %lld, %lld, %lld)\n", buf, info.arg1, info.arg2, info.arg3, info.arg4, info.arg5, info.arg6);
     } else {
         extract_syscall_result(&regs, &info);
         
-/*        if (data->syscall_id == SYS_brk || data->syscall_id == SYS_mmap || data->syscall_id == SYS_munmap)
+        if (data->syscall_id == SYS_brk || data->syscall_id == SYS_mmap || data->syscall_id == SYS_munmap)
             check_memory_usage(pid, data_);
 
         if (info.err == 0)
             fprintf(stderr, "Leaving syscall, result %lld\n", info.ret);
         else
-            fprintf(stderr, "Leaving syscall, error %lld\n", info.err);*/
+            fprintf(stderr, "Leaving syscall, error %lld\n", info.err);
     }
 }
 
