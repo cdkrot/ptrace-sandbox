@@ -4,7 +4,7 @@
 CC=gcc -Wall -Wextra -std=gnu11 -Isrc/gen -Isrc/utils
 LD=gcc
 
-all: bin/main/newdetect
+all: bin/main/newdetect bin/main/trace_simple
 
 help:
 	@echo "Do not call this make directly."
@@ -13,7 +13,10 @@ help:
 .PHONY: all help
 .DEFAULT: all
 
-bin/main/newdetect: obj/main/newdetect.o
-	${LD} obj/main/newdetect.o obj/utils/associative_array.o obj/utils/tracing_utils.o obj/utils/die.o obj/utils/read_proc.o obj/gen/naming_utils.o -rdynamic -o bin/main/newdetect
-obj/main/newdetect.o: src/main .build.tmp/build.time/gen .build.tmp/build.time/utils
+bin/main/newdetect: src/main .build.tmp/build.time/gen .build.tmp/build.time/utils
 	${CC} -c src/main/newdetect.c -o obj/main/newdetect.o
+	${LD} obj/main/newdetect.o obj/utils/associative_array.o obj/utils/tracing_utils.o obj/utils/die.o obj/utils/read_proc.o obj/gen/naming_utils.o -rdynamic -o bin/main/newdetect	
+
+bin/main/trace_simple: src/main .build.tmp/build.time/utils
+	${CC} -c src/main/trace_simple.c -o obj/main/trace_simple.o
+	${LD} obj/main/trace_simple.o obj/utils/die.o -o bin/main/trace_simple
