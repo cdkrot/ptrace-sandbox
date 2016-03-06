@@ -14,6 +14,7 @@ Demos to test on
 * return-1-cpp, return +1, c++.
 * return-0-noglibc, return 0, no system calls performed, asm.
 * hello, Guess what, c.
+* hello32, Same, but uses 32 bit ABI.
 * malloc, just eats a large bite of memory, c.
 * million-of-mmaps, guess what it does, c.
 

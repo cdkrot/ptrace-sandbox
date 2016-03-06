@@ -55,11 +55,6 @@ void trace_me() {
     // to do this setup).
 
     kill(getpid(), SIGSTOP);
-    
-    syscall(SYS_brk, NULL);
-    struct timespec tm;
-    tm.tv_sec = 1, tm.tv_nsec = 10;
-    nanosleep(&tm, NULL);
 }
 
 void tracing_loop(const struct tracing_callbacks* callbacks, void* userdata) {
