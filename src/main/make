@@ -4,7 +4,7 @@
 CC=gcc -Wall -Wextra -std=gnu11 -Isrc/gen -Isrc/utils
 LD=gcc
 
-all: bin/main/newdetect bin/main/trace_simple
+all: bin/main/newdetect bin/main/trace_simple bin/main/fast_memdetect
 
 help:
 	@echo "Do not call this make directly."
@@ -20,3 +20,6 @@ bin/main/newdetect: src/main .build.tmp/build.time/gen .build.tmp/build.time/uti
 bin/main/trace_simple: src/main .build.tmp/build.time/utils
 	${CC} -c src/main/trace_simple.c -o obj/main/trace_simple.o
 	${LD} obj/main/trace_simple.o obj/utils/die.o -o bin/main/trace_simple
+
+bin/main/fast_memdetect: src/main/fast_memdetect.c
+	${CC} src/main/fast_memdetect.c -o bin/main/fast_memdetect

@@ -2,12 +2,13 @@
     "clean": {
         "depend": ["---clean"],
         "build": [
-            "rm -rf bin obj src/gen"
+            "rm -rf bin obj src/gen",
+            "./src/module/make clean"
         ],
         "description": "Cleans build results"
     },
     "all": {
-        "depend": ["demos", "gen", "main", "utils"],
+        "depend": ["demos", "gen", "main", "utils", "module"],
         "build": [],
         "description": "Build everything"
     },
@@ -45,5 +46,14 @@
         ],
         "description": "Build main (ptrace) stuff",
         "build_if": "! ./src/main/make -q"
+    },
+    "module": {
+        "depend": [],
+        "build": [
+            "mkdir -p bin/module",
+            "./src/module/make"
+        ],
+        "description": "Build sandboxer.ko kernel module",
+        "build_if": "! ./src/module/make -q"
     }
 }
