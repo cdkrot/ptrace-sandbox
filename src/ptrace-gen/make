@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+
+CC=gcc -Wall -Wextra -std=gnu11 -Isrc/gen
+
+# < Main targets >
+
+all: obj/ptrace-gen/naming_utils.o
+
+help:
+	@echo "Do not use this make directly"
+	@echo "Use ./build in project root"
+
+.PHONY: all help
+
+src/ptrace-gen/naming_utils.c: src/ptrace-gen/
+	echo "cd ./src/ptrace-gen && ./gen-naming-utils-c.py > naming_utils.c" | sh
+
+obj/ptrace-gen/naming_utils.o: src/ptrace-gen/naming_utils.c
+	${CC} -c src/ptrace-gen/naming_utils.c -o obj/ptrace-gen/naming_utils.o

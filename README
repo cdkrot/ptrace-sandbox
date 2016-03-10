@@ -1,10 +1,5 @@
-Ptrace-based sandbox, Proof-of-concept for ejudge and not only
-==============================================================
-
-Contents
-========
-
-* newdetect, program similar to strace, but not too pretty (because it is not final goal).
+Sandboxing-related stuff, Proof-of-concept for ejudge and not only
+==================================================================
 
 Demos to test on
 ================
@@ -22,8 +17,33 @@ Requirements
 ============
 
 * Linux kernel and gnu libc, recent enough.
-* procfs enabled in kernel.
+* procfs enabled in kernel (for kernel-module-assisted sandboxing).
+* ptrace enabled in kernel (for ptrace-based sandboxing).
 * At the moment only x86_64 architecture supported.
+
+Old research (Ptrace-based sanboxing).
+======================================
+
+Ptrace is mechanism used by debuggers to supervise program execution and modify it in runtime
+
+Research Results:
+
++ Sandboxing via it is pretty much possible
++ It is completely user space (uses only external kernel api)
+- Requires linux
+- Pretty tricky in implementation.
+- requires to implement architecture related code (so we only implemented x86_64).
+- Can be slow, while not affecting user space execution, sys call are slowed down up to 70 times(!)
+
+Available demos:
+
+* newdetect, program similar to strace, but not too pretty, more or less complete implementation of ptrace protocol for x86_64.
+* trace_simple, minimalistiс (and incomplete) ptrace protocol implementation, mostly for benchmarking.
+
+Next-gen sandboxing via kernel module
+=====================================
+
+We decided to write kernel module to make sandboxing really fast, it is W.I.P.
 
 How to reportbug
 ================

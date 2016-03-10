@@ -18,7 +18,7 @@
 #include <assert.h>
 #include <stddef.h>
 
-#include <associative_array.h>
+#include "associative_array.h"
 #include "naming_utils.h"
 #include "tracing_utils.h"
 #include "die.h"
