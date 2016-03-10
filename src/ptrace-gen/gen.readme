@@ -1,4 +1,0 @@
-Take note that content of src/gen is copied from src/gen-scelet
-Before build.
-
-If you want to make some changes to "gen" module please modify files in gen-scelet

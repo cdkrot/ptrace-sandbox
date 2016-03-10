@@ -2,7 +2,7 @@
     "clean": {
         "depend": ["---clean"],
         "build": [
-            "rm -rf bin obj src/gen"
+            "rm -rf bin obj src/ptrace-gen"
         ],
         "description": "Cleans build results"
     },

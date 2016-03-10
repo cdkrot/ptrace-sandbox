@@ -1,6 +1,7 @@
 # < programs >
 bin
 obj
+src/ptrace-gen
 
 # < Build system tmp files >
 .build.tmp
