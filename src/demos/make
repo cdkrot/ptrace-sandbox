@@ -2,14 +2,15 @@
 
 # < Configuration >
 
- CC=gcc -Wall -Wextra -std=gnu11
-CXX=g++ -Wall -Wextra -std=gnu++11
-ASM=gcc -nostdlib
+CC   = gcc -Wall -Wextra -std=gnu11
+CC32 = ${CC} -m32
+CXX  = g++ -Wall -Wextra -std=gnu++11
+ASM  = gcc -nostdlib
 
 
 # < Main targets >
 
-all: bin/demos/aplusb bin/demos/return-1-cpp bin/demos/hello bin/demos/return-minus-1-c bin/demos/return-0-noglibc bin/demos/brk-1-noglibc bin/demos/sleep bin/demos/forks bin/demos/forks-noglibc bin/demos/malloc bin/demos/million-of-mmaps
+all: bin/demos/aplusb bin/demos/return-1-cpp bin/demos/hello bin/demos/return-minus-1-c bin/demos/return-0-noglibc bin/demos/brk-1-noglibc bin/demos/sleep bin/demos/forks bin/demos/forks-noglibc bin/demos/malloc bin/demos/million-of-mmaps bin/demos/hello32
 
 help:
 	@echo "Do not call this make directly"
@@ -52,3 +53,6 @@ bin/demos/malloc: src/demos/malloc.c
 
 bin/demos/million-of-mmaps: src/demos/million-of-mmaps.c
 	${CC} src/demos/million-of-mmaps.c -o bin/demos/million-of-mmaps
+
+bin/demos/hello32: src/demos/hello.c
+	${CC32} src/demos/hello.c -o bin/demos/hello32

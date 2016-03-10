@@ -1,0 +1,21 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+CC=gcc -Wall -Wextra -std=gnu11 -Isrc/ptrace-gen -Isrc/ptrace-utils
+LD=gcc
+
+all: bin/ptrace-main/newdetect bin/ptrace-main/trace_simple
+
+help:
+	@echo "Do not call this make directly."
+	@echo "Use ./build in project root"
+
+.PHONY: all help
+
+bin/ptrace-main/newdetect: src/ptrace-main .build.tmp/build.time/ptrace-gen .build.tmp/build.time/ptrace-utils
+	${CC} -c src/ptrace-main/newdetect.c -o obj/ptrace-main/newdetect.o
+	${LD} obj/ptrace-main/newdetect.o obj/ptrace-utils/associative_array.o obj/ptrace-utils/tracing_utils.o obj/ptrace-utils/die.o obj/ptrace-utils/read_proc.o obj/ptrace-gen/naming_utils.o -rdynamic -o bin/ptrace-main/newdetect	
+
+bin/ptrace-main/trace_simple: src/ptrace-main .build.tmp/build.time/ptrace-utils
+	${CC} -c src/ptrace-main/trace_simple.c -o obj/ptrace-main/trace_simple.o
+	${LD} obj/ptrace-main/trace_simple.o obj/ptrace-utils/die.o -o bin/ptrace-main/trace_simple

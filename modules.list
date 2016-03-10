@@ -2,13 +2,13 @@
     "clean": {
         "depend": ["---clean"],
         "build": [
-            "rm -rf bin obj src/gen",
+            "rm -rf bin obj src/ptrace-gen",
             "./src/module/make clean"
         ],
         "description": "Cleans build results"
     },
     "all": {
-        "depend": ["demos", "gen", "main", "utils", "module"],
+        "depend": ["demos", "ptrace-gen", "ptrace-main", "ptrace-utils", "module", "module-userspace"],
         "build": [],
         "description": "Build everything"
     },
@@ -18,34 +18,34 @@
             "mkdir -p bin/demos",
             "./src/demos/make"
         ],
-        "description": "Build demos to test detector on",
+        "description": "Build demos to test on",
         "build_if": "! ./src/demos/make -q"
     },
-    "gen": {
+    "ptrace-gen": {
         "depend": [],
         "build": [
-            "./src/gen/make"
+            "./src/ptrace-gen/make"
         ],
-        "description": "Build generated code",
-        "build_if": "./src/gen-scelet/copy_myself.sh && ! ./src/gen/make -q"
+        "description": "[ptrace sandbox] Build generated code",
+        "build_if": "./src/ptrace-gen-scelet/copy_myself.sh && ! ./src/ptrace-gen/make -q"
     },
-    "utils": {
+    "ptrace-utils": {
         "depend": [],
         "build": [
-            "mkdir -p obj/utils",
-            "./src/utils/make"
+            "mkdir -p obj/ptrace-utils",
+            "./src/ptrace-utils/make"
         ],
-        "description": "Different utilities",
-        "build_if": "! ./src/utils/make -q"
+        "description": "[ptrace sandbox] Different utilities",
+        "build_if": "! ./src/ptrace-utils/make -q"
     },
-    "main": {
-        "depend": ["utils", "gen"],
+    "ptrace-main": {
+        "depend": ["ptrace-utils", "ptrace-gen"],
         "build": [
-            "mkdir -p obj/main bin/main",
-            "./src/main/make"
+            "mkdir -p obj/ptrace-main bin/ptrace-main",
+            "./src/ptrace-main/make"
         ],
-        "description": "Build main (ptrace) stuff",
-        "build_if": "! ./src/main/make -q"
+        "description": "[ptrace sandbox] main stuff",
+        "build_if": "! ./src/ptrace-main/make -q"
     },
     "module": {
         "depend": [],
@@ -53,7 +53,15 @@
             "mkdir -p bin/module",
             "./src/module/make"
         ],
-        "description": "Build sandboxer.ko kernel module",
+        "description": "[kernel module sandboxing] Build sandboxer.ko kernel module",
         "build_if": "! ./src/module/make -q"
+    },
+    "module-userspace": {
+        "depend": [],
+        "build": [
+            "mkdir -p bin/module-userspace",
+            "./src/module-userspace/make"
+        ],
+        "description": "[Kernel module sandboxing] Build sandboxer.ko userspace staff"
     }
 }
