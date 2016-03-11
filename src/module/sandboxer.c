@@ -31,6 +31,13 @@ unsigned long sandboxer_mmap_region_handler(struct file* file, unsigned long add
     return 0;
 }
 
+// Handler for opening file /proc/sandboxer
+int sandboxer_proc_entry_open(struct inode *sp_inode, struct file *sp_file)
+{
+    printk(KERN_INFO "[sandboxer] sandboxer_proc_entry_open called\n");
+    return 0;
+}
+
 static const char SANDBOX_RESTRICTED[2] = "1";
 static const char SANDBOX_NOT_RESTRICTED[2] = "0";
 
@@ -39,6 +46,8 @@ ssize_t sandboxer_proc_entry_read(struct file* _file, char *buffer, size_t lengt
     loff_t *offset)
 {
     ssize_t ret = 0;
+    printk(KERN_INFO "[sandboxer] sandboxer_proc_entry_read(%p, %p, %lu, %p) called\n", _file, buffer, length, offset);
+    printk(KERN_INFO "[sandboxer] offset value is %lld\n", *offset);
     if (*offset > 0)
         return 0;
     if (should_detect[current->pid])
@@ -66,11 +75,19 @@ ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer,
     return 2;
 }
 
+int sandboxer_proc_entry_release(struct inode *sp_inode, struct file *sp_file)
+{
+    printk(KERN_INFO "[sandboxer] sandboxer_proc_entry_release called\n");
+    return 0;
+}
+
 // For registering prevoius callbacks
 static const struct file_operations sandboxer_proc_entry_file_ops = {
     .owner = THIS_MODULE,
+    .open = sandboxer_proc_entry_open,
     .read = sandboxer_proc_entry_read,
     .write = sandboxer_proc_entry_write,
+    .release = sandboxer_proc_entry_release,
 };
 
 static int __init sandboxer_module_init(void)
@@ -86,7 +103,7 @@ static int __init sandboxer_module_init(void)
         should_detect[i] = false;
 
     // Create /proc/sandboxer file
-    sandboxer_proc_entry = proc_create("sandboxer", 0, NULL, &sandboxer_proc_entry_file_ops);
+    sandboxer_proc_entry = proc_create("sandboxer", 0666, NULL, &sandboxer_proc_entry_file_ops);
     if (sandboxer_proc_entry == NULL)
     {
         printk(KERN_INFO "[sandboxer] ERROR: error while creating /proc/sandboxer file");
