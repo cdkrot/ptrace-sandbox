@@ -105,7 +105,6 @@ static const struct file_operations sandboxer_proc_entry_file_ops = {
 static int __init sandboxer_module_init(void)
 {
     int i;
-    void* sys_mmap_addr;
     int errno;
     
     printk(KERN_INFO "[sandboxer] init\n");
@@ -122,16 +121,8 @@ static int __init sandboxer_module_init(void)
         return -ENOMEM;
     }
 
-    // Determine where sys_mmap is loaded
-    sys_mmap_addr = (void*)kallsyms_lookup_name("sys_mmap");
-    printk(KERN_INFO "[sandboxer] determined sys_mmap address as %p\n", sys_mmap_addr);
-    if (sys_mmap_addr == NULL)
-    {
-        printk(KERN_INFO "[sandboxer] WARNING: sys_mmap_addr was not recognized.\n");
-    }
-
     // Register kretprobe
-    sys_mmap_kretprobe.kp.addr = sys_mmap_addr;
+    sys_mmap_kretprobe.kp.symbol_name = "sys_mmap";
     sys_mmap_kretprobe.handler = sandboxer_sys_mmap_return_handler;
     sys_mmap_kretprobe.maxactive = PID_MAX;
     errno = register_kretprobe(&sys_mmap_kretprobe);
@@ -146,7 +137,8 @@ static int __init sandboxer_module_init(void)
 
 static void __exit sandboxer_module_exit(void)
 {
-    printk(KERN_INFO "sandboxer exit\n");
+    printk(KERN_INFO "[sandboxer] missed %d probe events\n", sys_mmap_kretprobe.nmissed);
+    printk(KERN_INFO "[sandboxer] exit\n");
     unregister_kretprobe(&sys_mmap_kretprobe);
     remove_proc_entry("sandboxer", NULL);
 }
