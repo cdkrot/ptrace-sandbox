@@ -4,6 +4,7 @@
 #include <linux/kprobes.h>
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
+#include <linux/pid.h>
 
 #include <stdbool.h>
 
@@ -14,21 +15,32 @@ MODULE_LICENSE("GPL");
 #define PID_MAX 32768
 bool should_detect[PID_MAX];
 
-struct jprobe mmap_region_jprobe;
+struct kretprobe sys_mmap_kretprobe;
 
 // Structure for /proc/sandboxer file
 struct proc_dir_entry *sandboxer_proc_entry;
 
-/* Accroding to kprobes documentation, jprobe handler prototype must match the
- * jprobed function. The following prototype can be found at mm/mm.c. */
-unsigned long sandboxer_mmap_region_handler(struct file* file, unsigned long addr,
-    unsigned long len, vm_flags_t vm_flags, unsigned long pgoff)
+// See fs/proc/array.c and fs/proc/task_mmu.c for the details
+// Temporarily we need to have CONFIG_MMU enabled in kernel
+unsigned long get_task_vm_size(struct task_struct* task)
+{
+    unsigned long ret = 0;
+    struct mm_struct *mm = get_task_mm(task);
+
+    if (mm)
+        ret = mm->total_vm;
+
+    return ret;
+}
+
+int sandboxer_sys_mmap_return_handler(struct kretprobe_instance *ri, struct pt_regs* regs)
 {
     if (should_detect[current->pid])
-        printk(KERN_INFO "[sandboxer] mmap_region handled\n");
-    jprobe_return();
-    /* unreachable code */
-    return 0;
+    {
+        printk(KERN_INFO "[sandboxer] sys_mmap return handled. Return value is %lu\n", (unsigned long)(regs_return_value(regs)));
+        printk(KERN_INFO "[sandboxer] now task memory is %lu\n", get_task_vm_size(current) * PAGE_SIZE);
+    }
+    return 0; // Return value is currently ignored
 }
 
 // Handler for opening file /proc/sandboxer
@@ -93,7 +105,7 @@ static const struct file_operations sandboxer_proc_entry_file_ops = {
 static int __init sandboxer_module_init(void)
 {
     int i;
-    void* mmap_region_addr;
+    void* sys_mmap_addr;
     int errno;
     
     printk(KERN_INFO "[sandboxer] init\n");
@@ -110,21 +122,22 @@ static int __init sandboxer_module_init(void)
         return -ENOMEM;
     }
 
-    // Determine where mmap_region is loaded
-    mmap_region_addr = (void*)kallsyms_lookup_name("mmap_region");
-    printk(KERN_INFO "[sandboxer] determined mmap_region address as %p\n", mmap_region_addr);
-    if (mmap_region_addr == NULL)
+    // Determine where sys_mmap is loaded
+    sys_mmap_addr = (void*)kallsyms_lookup_name("sys_mmap");
+    printk(KERN_INFO "[sandboxer] determined sys_mmap address as %p\n", sys_mmap_addr);
+    if (sys_mmap_addr == NULL)
     {
-        printk(KERN_INFO "[sandboxer] WARNING: mmap_region_addr was not recognized.\n");
+        printk(KERN_INFO "[sandboxer] WARNING: sys_mmap_addr was not recognized.\n");
     }
 
-    // Register jprobe
-    mmap_region_jprobe.kp.addr = mmap_region_addr;
-    mmap_region_jprobe.entry = sandboxer_mmap_region_handler;
-    errno = register_jprobe(&mmap_region_jprobe);
+    // Register kretprobe
+    sys_mmap_kretprobe.kp.addr = sys_mmap_addr;
+    sys_mmap_kretprobe.handler = sandboxer_sys_mmap_return_handler;
+    sys_mmap_kretprobe.maxactive = PID_MAX;
+    errno = register_kretprobe(&sys_mmap_kretprobe);
     if (errno != 0)
     {
-        printk(KERN_INFO "[sandboxer] ERROR: register_jprobe returned %d.\n", errno);
+        printk(KERN_INFO "[sandboxer] ERROR: register_kretprobe returned %d.\n", errno);
         return errno;
     }
 
@@ -134,7 +147,7 @@ static int __init sandboxer_module_init(void)
 static void __exit sandboxer_module_exit(void)
 {
     printk(KERN_INFO "sandboxer exit\n");
-    unregister_jprobe(&mmap_region_jprobe);
+    unregister_kretprobe(&sys_mmap_kretprobe);
     remove_proc_entry("sandboxer", NULL);
 }
 

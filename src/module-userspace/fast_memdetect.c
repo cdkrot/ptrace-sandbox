@@ -1,8 +1,11 @@
 #include <stdio.h>
 #include <unistd.h>
+#include <assert.h>
+#include <sys/mman.h>
 
-int main()
+int main(int argc, char** argv)
 {
+    assert(argc > 1);
     FILE* f = fopen("/proc/sandboxer", "w");
     if (!f)
     {
@@ -12,11 +15,9 @@ int main()
     fprintf(f, "1");
     fclose(f);
 
-    f = fopen("/proc/sandboxer", "r");
-    int d;
-    fscanf(f, "%d", &d);
-    fclose(f);
+    execve(argv[1], argv + 1, NULL);
 
-    printf("%d\n", d);
+    mmap(0, 0, 0, 0, 0, 0);
+
     return 0;
 }
