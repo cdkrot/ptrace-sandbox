@@ -1,0 +1,24 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+CC=gcc -Wall -Wextra -std=gnu11 -Isrc/ptrace-utils
+
+# < Main targets >
+all: obj/ptrace-utils/associative_array.o obj/ptrace-utils/tracing_utils.o obj/ptrace-utils/die.o obj/ptrace-utils/read_proc.o
+
+help:
+	@echo "Do not call this make directly"
+	@echo "Use ./build in project root"
+
+.PHONY: all help
+
+# < Targets >
+# rebuild everything if src/utils changes
+obj/ptrace-utils/associative_array.o: src/ptrace-utils/
+	${CC} -c src/ptrace-utils/associative_array.c -o obj/ptrace-utils/associative_array.o
+obj/ptrace-utils/tracing_utils.o: src/ptrace-utils/
+	${CC} -c src/ptrace-utils/tracing_utils.c -o obj/ptrace-utils/tracing_utils.o
+obj/ptrace-utils/die.o: src/ptrace-utils
+	${CC} -c src/ptrace-utils/die.c -o obj/ptrace-utils/die.o
+obj/ptrace-utils/read_proc.o: src/ptrace-utils/
+	${CC} -c src/ptrace-utils/read_proc.c -o obj/ptrace-utils/read_proc.o

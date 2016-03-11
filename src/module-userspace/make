@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+CC=gcc -Wall -Wextra -std=gnu11
+LD=gcc
+
+all: bin/module-userspace/fast_memdetect
+
+help:
+	@echo "Do not call this make directly."
+	@echo "Use ./build in project root"
+
+.PHONY: all help
+
+bin/module-userspace/fast_memdetect: src/module-userspace/fast_memdetect.c
+	${CC} src/module-userspace/fast_memdetect.c -o bin/module-userspace/fast_memdetect
