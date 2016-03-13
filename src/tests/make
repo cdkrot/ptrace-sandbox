@@ -1,0 +1,15 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+CXX=g++ -Wall -Wextra -std=gnu++11 -O2
+
+all: bin/tests/test_hashmap
+
+help:
+	@echo "Do not call this make directly."
+	@echo "Use ./build in project root"
+
+.PHONY: all help
+
+bin/tests/test_hashmap: src/tests/test_hashmap.cpp
+	${CXX} -Isrc/module src/tests/test_hashmap.cpp -o bin/tests/test_hashmap

@@ -63,5 +63,14 @@
             "./src/module-userspace/make"
         ],
         "description": "[Kernel module sandboxing] Build sandboxer.ko userspace staff"
+    },
+    "tests": {
+        "depend": [],
+        "build": [
+            "mkdir -p bin/tests",
+            "./src/tests/make",
+            "./bin/tests/test_hashmap"
+        ],
+        "description": "Test some modules"
     }
 }
