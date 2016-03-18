@@ -1,7 +1,8 @@
 #!/usr/bin/make -f
 
 ifneq ($(KERNELRELEASE),)
-obj-m += sandboxer.o
+obj-m := sandboxer.o
+sandboxer-y := sandboxer-core.o sandboxer-proc.o
 else
 
 all: 
