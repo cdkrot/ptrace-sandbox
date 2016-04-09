@@ -36,6 +36,8 @@ u8 create_new_slot(void) {
     res = free_slots[--p_free_slot];
     
     slots[res].num_alive = 0;
+    slots[res].memory_used = 0;
+    slots[res].max_memory_used = 0;
 
     printk(KERN_INFO "Allocated new sandboxing slot (%u)\n", (u32)res);
     return res;
