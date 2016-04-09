@@ -1,3 +1,6 @@
+#ifndef SANDBOXER_CORE_H_
+#define SANDBOXER_CORE_H_
+
 #include <linux/sched.h>
 #include <linux/pid.h>
 
@@ -30,3 +33,5 @@ u8 create_new_slot(void); // return NOT_SANDBOXED, if no slots left.
 void release_slot(u8); // call only when slot is empty.
 void attach_pid_to_slot(pid_t, u8); // asserts that both pid and slot are valid.
 void detach_pid_from_slot(pid_t pid);  // call when pid died and _have_been_waited_for_.
+
+#endif //SANDBOXER_CORE_H_

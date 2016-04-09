@@ -72,8 +72,7 @@ void detach_pid_from_slot(pid_t pid) {
 
 // See fs/proc/array.c and fs/proc/task_mmu.c for the details
 // Temporarily we need to have CONFIG_MMU enabled in kernel
-unsigned long get_task_vm_size(struct task_struct* task)
-{
+unsigned long get_task_vm_size(struct task_struct* task) {
     unsigned long ret = 0;
     struct mm_struct *mm = get_task_mm(task);
 
@@ -83,18 +82,15 @@ unsigned long get_task_vm_size(struct task_struct* task)
     return ret;
 }
 
-int sandboxer_sys_mmap_return_handler(struct kretprobe_instance *ri, struct pt_regs* regs)
-{
-    if (slot_of[current->pid] != NOT_SANDBOXED)
-    {
+int sandboxer_sys_mmap_return_handler(struct kretprobe_instance *ri, struct pt_regs* regs) {
+    if (slot_of[current->pid] != NOT_SANDBOXED) {
         printk(KERN_INFO "[sandboxer] sys_mmap return handled. Return value is %lu\n", (unsigned long)(regs_return_value(regs)));
         printk(KERN_INFO "[sandboxer] now task memory is %lu\n", get_task_vm_size(current) * PAGE_SIZE);
     }
     return 0; // Return value is currently ignored
 }
 
-static int __init sandboxer_module_init(void)
-{
+static int __init sandboxer_module_init(void) {
     int errno;
     
     printk(KERN_INFO "[sandboxer] init\n");
@@ -103,8 +99,7 @@ static int __init sandboxer_module_init(void)
 
     // Create /proc/sandboxer file
     errno = sandboxer_init_proc();
-    if (errno)
-    {
+    if (errno) {
         printk(KERN_INFO "[sandboxer] ERROR: error while creating /proc/sandboxer file");
         return errno;
     }
@@ -114,8 +109,7 @@ static int __init sandboxer_module_init(void)
     sys_mmap_kretprobe.handler = sandboxer_sys_mmap_return_handler;
     sys_mmap_kretprobe.maxactive = PID_MAX;
     errno = register_kretprobe(&sys_mmap_kretprobe);
-    if (errno != 0)
-    {
+    if (errno != 0) {
         printk(KERN_INFO "[sandboxer] ERROR: register_kretprobe returned %d.\n", errno);
         sandboxer_shutdown_proc();
         return errno;
@@ -124,8 +118,7 @@ static int __init sandboxer_module_init(void)
     return 0;
 }
 
-static void __exit sandboxer_module_exit(void)
-{
+static void __exit sandboxer_module_exit(void) {
     printk(KERN_INFO "[sandboxer] missed %d probe events\n", sys_mmap_kretprobe.nmissed);
     printk(KERN_INFO "[sandboxer] exit\n");
     unregister_kretprobe(&sys_mmap_kretprobe);

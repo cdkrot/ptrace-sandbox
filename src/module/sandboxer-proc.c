@@ -15,8 +15,7 @@ static const char SANDBOX_RESTRICTED[2] = "1";
 }*/ 
 
 ssize_t sandboxer_proc_entry_read(struct file* _file, char *buffer, size_t length,
-    loff_t *offset)
-{
+    loff_t *offset) {
     /* I have doubts why this should work, what if length is very short or some other weird things? */
     ssize_t ret = 0;
     printk(KERN_INFO "[sandboxer] sandboxer_proc_entry_read(%p, %p, %lu, %p) called\n", _file, buffer, length, offset);
@@ -29,8 +28,7 @@ ssize_t sandboxer_proc_entry_read(struct file* _file, char *buffer, size_t lengt
 }
 
 ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer, 
-    size_t length, loff_t * offset)
-{
+    size_t length, loff_t * offset) {
     /* same as for read */
     
     printk(KERN_INFO "[sandboxer] write %s\n", buffer);
