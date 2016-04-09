@@ -4,7 +4,7 @@
 CC=gcc -Wall -Wextra -std=gnu11
 LD=gcc
 
-all: bin/module-userspace/fast_memdetect
+all: bin/module-userspace/fast_memdetect bin/module-userspace/smdt-malloc
 
 help:
 	@echo "Do not call this make directly."
@@ -14,3 +14,6 @@ help:
 
 bin/module-userspace/fast_memdetect: src/module-userspace/fast_memdetect.c
 	${CC} src/module-userspace/fast_memdetect.c -o bin/module-userspace/fast_memdetect
+
+bin/module-userspace/smdt-malloc: src/module-userspace/smdt-malloc.c
+	${CC} src/module-userspace/smdt-malloc.c -o bin/module-userspace/smdt-malloc

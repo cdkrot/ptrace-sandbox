@@ -79,13 +79,22 @@ unsigned long get_task_vm_size(struct task_struct* task) {
     if (mm)
         ret = mm->total_vm;
 
-    return ret;
+    return ret * PAGE_SIZE;
 }
 
 int sandboxer_sys_mmap_return_handler(struct kretprobe_instance *ri, struct pt_regs* regs) {
+    size_t mem;
+    struct sandbox_slot *cur_slot;
+
     if (slot_of[current->pid] != NOT_SANDBOXED) {
         printk(KERN_INFO "[sandboxer] sys_mmap return handled. Return value is %lu\n", (unsigned long)(regs_return_value(regs)));
-        printk(KERN_INFO "[sandboxer] now task memory is %lu\n", get_task_vm_size(current) * PAGE_SIZE);
+        printk(KERN_INFO "[sandboxer] now task memory is %lu\n", get_task_vm_size(current));
+
+        mem = get_task_vm_size(current);
+        cur_slot = slots + slot_of[current->pid];
+        cur_slot->memory_used = mem;
+        if (mem > cur_slot->max_memory_used)
+            cur_slot->max_memory_used = mem;
     }
     return 0; // Return value is currently ignored
 }
