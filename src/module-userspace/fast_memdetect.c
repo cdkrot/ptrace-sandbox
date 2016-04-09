@@ -9,7 +9,7 @@ int main(int argc, char** argv)
     FILE* f = fopen("/proc/sandboxer", "w");
     if (!f)
     {
-        printf("Unable to open file\n");
+        printf("Unable to open file on writing\n");
         return -1;
     }
     fprintf(f, "1");
@@ -17,7 +17,19 @@ int main(int argc, char** argv)
 
     execve(argv[1], argv + 1, NULL);
 
-    mmap(0, 0, 0, 0, 0, 0);
+    printf("!!!\n");
+
+    f = fopen("/proc/sandboxer", "r");
+    if (!f)
+    {
+        printf("Unable to open file on reading\n");
+        return -1;
+    }
+    unsigned long maxmem;
+    fscanf(f, "%lu", &maxmem);
+    fclose(f);
+
+    printf("\n\nMemory usage: %lu\n", maxmem);
 
     return 0;
 }

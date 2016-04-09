@@ -1,37 +1,13 @@
 #include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 #include "sandboxer-proc.h"
 #include "sandboxer-core.h"
 
-/* You want to write this to enable sandbox on your thread and it's children */
-/* After enabling sandbox you can't turn it off */
 static const char SANDBOX_RESTRICTED[2] = "1";
 
-
-/*int sandboxer_proc_entry_open(struct inode *sp_inode, struct file *sp_file)
-{
-    (I believe null handler is enough here)
-    printk(KERN_INFO "[sandboxer] sandboxer_proc_entry_open called\n");
-    return 0;
-}*/ 
-
-ssize_t sandboxer_proc_entry_read(struct file* _file, char *buffer, size_t length,
-    loff_t *offset) {
-    /* I have doubts why this should work, what if length is very short or some other weird things? */
-    ssize_t ret = 0;
-    printk(KERN_INFO "[sandboxer] sandboxer_proc_entry_read(%p, %p, %lu, %p) called\n", _file, buffer, length, offset);
-    printk(KERN_INFO "[sandboxer] offset value is %lld\n", *offset);
-    if (*offset > 0)
-        return 0;
-    ret = sprintf(buffer, "%u", slot_of[current->pid]);
-    *offset = ret;
-    return ret;
-}
-
-ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer, 
-    size_t length, loff_t * offset) {
-    /* same as for read */
-    
-    printk(KERN_INFO "[sandboxer] write %s\n", buffer);
+static ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer, 
+    size_t length, loff_t *offset) {
+    /* that is a temporary realization, used only to write one byte ('0' or '1') to /proc/sandboxer */
     if (*offset > 0)
         return 0;
     if (strcmp(buffer, SANDBOX_RESTRICTED) == 0) {
@@ -46,26 +22,57 @@ ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer,
     return 2;
 }
 
-/*int sandboxer_proc_entry_release(struct inode *sp_inode, struct file *sp_file)
-{
-    (I belive null handler is enough here)
-    printk(KERN_INFO "[sandboxer] sandboxer_proc_entry_release called\n");
+static void* sandboxer_seq_start(struct seq_file *s, loff_t *pos) {
+    static struct sandbox_slot* slot;
+
+    if (*pos == 0 && slot_of[current->pid] != NOT_SANDBOXED)
+        slot = &(slots[slot_of[current->pid]]);
+    else {
+        *pos = 0;
+        slot = NULL;
+    }
+    
+    return slot;
+}
+
+static int sandboxer_seq_show(struct seq_file *s, void *v) {
+    struct sandbox_slot* slot = v;
+
+    seq_printf(s, "%lu", slot->max_memory_used);
     return 0;
-}*/
+}
+
+static void* sandboxer_seq_next(struct seq_file *s, void *v, loff_t *pos) {
+    ++*pos;
+    return NULL;
+}
+
+static void sandboxer_seq_stop(struct seq_file *s, void *v) {}
+
+static const struct seq_operations sandboxer_seq_ops = {
+    .start = sandboxer_seq_start,
+    .next = sandboxer_seq_next,
+    .stop = sandboxer_seq_stop,
+    .show = sandboxer_seq_show
+};
+
+static int sandboxer_proc_entry_open(struct inode *_inode, struct file *_file) {
+    return seq_open(_file, &sandboxer_seq_ops);
+}
 
 struct proc_dir_entry *sandboxer_proc_entry;
 
-static const struct file_operations sandboxer_proc_entry_file_ops = {
+static const struct file_operations sandboxer_proc_entry_fops = {
     .owner = THIS_MODULE,
-//    .open = sandboxer_proc_entry_open,
-    .read = sandboxer_proc_entry_read,
-    .write = sandboxer_proc_entry_write,
-//    .release = sandboxer_proc_entry_release,
+    .open = sandboxer_proc_entry_open,
+    .read = seq_read,
+    .llseek = seq_lseek,
+    .release = seq_release,
+    .write = sandboxer_proc_entry_write
 };
 
-/* returns 0 on success, errno otherways */
 int sandboxer_init_proc(void) {
-    sandboxer_proc_entry = proc_create("sandboxer", 0666, NULL, &sandboxer_proc_entry_file_ops);
+    sandboxer_proc_entry = proc_create("sandboxer", 0666, NULL, &sandboxer_proc_entry_fops);
     if (sandboxer_proc_entry == NULL)
         return -EFAULT;
     return 0;
