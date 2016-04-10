@@ -14,7 +14,9 @@ MODULE_LICENSE("GPL");
 
 u8 slot_of[PID_MAX];
 struct sandbox_slot slots[NUM_SANDBOXING_SLOTS];
+
 struct kretprobe sys_mmap_kretprobe;
+struct kprobe on_task_exit_kprobe;
 
 // stack of open slots.
 u8 free_slots[NUM_SANDBOXING_SLOTS];
@@ -55,6 +57,7 @@ void attach_pid_to_slot(pid_t pid, u8 slot) {
 
     slot_of[pid] = slot;
     slots[slot].num_alive += 1;
+    slots[slot].ref_cnt += 1;
     printk(KERN_INFO "Attached pid (%d) to slot (%u)\n", pid, (u32)slot);
 }
 
@@ -64,8 +67,9 @@ void detach_pid_from_slot(pid_t pid) {
 
     if (slot_of[pid] != NOT_SANDBOXED) {
         slots[slot_of[pid]].num_alive -= 1;
-
-        if (slots[slot_of[pid]].num_alive == 0)
+        slots[slot_of[pid]].ref_cnt -= 1;
+        
+        if (slots[slot_of[pid]].ref_cnt == 0)
             release_slot(slot_of[pid]);
         
         slot_of[pid] = NOT_SANDBOXED;
@@ -101,6 +105,28 @@ int sandboxer_sys_mmap_return_handler(struct kretprobe_instance *ri, struct pt_r
     return 0; // Return value is currently ignored
 }
 
+static void sandboxer_release_handler(struct task_struct* tsk);
+
+// do_exit
+int sandboxer_exit_handler(struct kprobe* probe, struct pt_regs* regs) {
+    if (slot_of[current->pid] != NOT_SANDBOXED) {
+        printk(KERN_INFO "Pid %d is now zombie", current->pid);
+        slots[slot_of[current->pid]].num_alive -= 1;
+        sandboxer_release_handler(current); // at the moment coexist together.
+    }
+    return 0;
+}
+
+void sandboxer_release_handler(struct task_struct* tsk) {
+    if (slot_of[tsk->pid] != NOT_SANDBOXED) {
+        printk(KERN_INFO "Pid %d is leaving zombie state\n", tsk->pid);
+        slots[slot_of[tsk->pid]].ref_cnt -= 1;
+        if (slots[slot_of[tsk->pid]].ref_cnt == 0)
+            release_slot(slot_of[tsk->pid]);
+        slot_of[tsk->pid] = NOT_SANDBOXED;
+    }
+}
+
 static int __init sandboxer_module_init(void) {
     int errno;
     
@@ -109,30 +135,49 @@ static int __init sandboxer_module_init(void) {
     sandboxer_init_slots();
 
     // Create /proc/sandboxer file
-    errno = sandboxer_init_proc();
-    if (errno) {
-        printk(KERN_INFO "[sandboxer] ERROR: error while creating /proc/sandboxer file");
-        return errno;
+    if ((errno = sandboxer_init_proc()) != 0) {
+        printk(KERN_INFO "[sandboxer] ERROR: failed to create /proc/sandboxer file\n");
+        goto out;
     }
 
-    // Register kretprobe
+    // Register kretprobe [sys_mmap]
     sys_mmap_kretprobe.kp.symbol_name = "sys_mmap";
     sys_mmap_kretprobe.handler = sandboxer_sys_mmap_return_handler;
     sys_mmap_kretprobe.maxactive = PID_MAX;
-    errno = register_kretprobe(&sys_mmap_kretprobe);
-    if (errno != 0) {
-        printk(KERN_INFO "[sandboxer] ERROR: register_kretprobe returned %d.\n", errno);
-        sandboxer_shutdown_proc();
-        return errno;
+    if ((errno = register_kretprobe(&sys_mmap_kretprobe)) != 0) {
+        printk(KERN_INFO "[sandboxer] ERROR: failed to create sys_mmap probe\n");
+        goto out_term_proc;
+    }
+
+    // register kretprobe [do_exit]
+    on_task_exit_kprobe.symbol_name = "do_exit";
+    on_task_exit_kprobe.pre_handler = sandboxer_exit_handler;
+//    on_task_exit_kprobe.maxactive = PID_MAX; /* no such field */
+    if ((errno = register_kprobe(&on_task_exit_kprobe)) != 0) {
+        printk(KERN_INFO "[sandboxer] ERROR: failed to create do_exit probe\n");
+        goto out_term_sys_mmap_probe;
     }
 
     return 0;
+    
+//out_term_do_exit_probe:
+//    unregister_kprobe(&on_task_exit_kprobe);
+out_term_sys_mmap_probe:
+    unregister_kretprobe(&sys_mmap_kretprobe);
+out_term_proc:
+    sandboxer_shutdown_proc();
+out:
+    printk(KERN_INFO "[sandboxer] FATAL_ERROR: failed to initialize, errno = %d\n", errno);
+    return errno;
 }
 
 static void __exit sandboxer_module_exit(void) {
-    printk(KERN_INFO "[sandboxer] missed %d probe events\n", sys_mmap_kretprobe.nmissed);
+    printk(KERN_INFO "[sandboxer] missed %d sys_mmap probe events\n", sys_mmap_kretprobe.nmissed);
+    printk(KERN_INFO "[sandboxer] missed %lu do_exit probe events\n", on_task_exit_kprobe.nmissed);
+    
     printk(KERN_INFO "[sandboxer] exit\n");
     unregister_kretprobe(&sys_mmap_kretprobe);
+    unregister_kprobe(&on_task_exit_kprobe);
     sandboxer_shutdown_proc();
 }
 

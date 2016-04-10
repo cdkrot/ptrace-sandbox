@@ -6,6 +6,7 @@
 
 struct sandbox_slot {
     size_t num_alive; /* num process alive in this slot */
+    size_t ref_cnt; /* reference counter, >= num_alive */
     
     size_t memory_used;
     size_t max_memory_used;
@@ -14,6 +15,7 @@ struct sandbox_slot {
     size_t time_used;
     size_t time_limit;
 
+    /* add mutex here */
     /* also should contain security rules */
 };
 
