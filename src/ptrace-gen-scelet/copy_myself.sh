@@ -1,5 +1,9 @@
 #!/bin/sh
 
+# Script to simplify building of generated code.
+# Copyright (C) 2016 Vasiliy Alferov
+# Licensed under GNU GPL v3 or (at your option) later.
+
 if [ ! -d src/ptrace-gen ]; then
     mkdir ./src/ptrace-gen
 fi
