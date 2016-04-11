@@ -14,17 +14,22 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+#include <time.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 
 int main()
 {
     FILE* file = fopen("/proc/sandboxer", "w");
     fprintf(file, "1");
     fclose(file);
-
+    
     malloc(512 * 1024 * 1024);
 
+    srand(time(NULL));
+    usleep((rand() % 1000 + 100) * 1000);
+    
     unsigned long maxmem = 0;
     file = fopen("/proc/sandboxer", "r");
     fscanf(file, "%lu", &maxmem);

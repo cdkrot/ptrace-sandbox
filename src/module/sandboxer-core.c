@@ -37,9 +37,10 @@ struct kprobe on_task_exit_kprobe;
 // stack of open slots.
 u8 free_slots[NUM_SANDBOXING_SLOTS];
 size_t p_free_slot = NUM_SANDBOXING_SLOTS;
+DEFINE_SPINLOCK(stack_lock);
 
 void sandboxer_init_slots(void) {
-    u8 i;
+    u8 i;    
     
     memset(slot_of, NOT_SANDBOXED, PID_MAX);
     
@@ -49,20 +50,30 @@ void sandboxer_init_slots(void) {
 
 u8 create_new_slot(void) {
     u8 res;
-    if (p_free_slot == 0)
-        return NOT_SANDBOXED;
-    res = free_slots[--p_free_slot];
     
-    slots[res].num_alive = 0;
-    slots[res].memory_used = 0;
-    slots[res].max_memory_used = 0;
+    spin_lock(&stack_lock);
+    
+    if (p_free_slot == 0)
+        res = NOT_SANDBOXED;
+    else {
+        res = free_slots[--p_free_slot];
+        
+        slots[res].num_alive = 0;
+        slots[res].memory_used = 0;
+        slots[res].max_memory_used = 0;
+        
+        printk(KERN_INFO "Allocated new sandboxing slot (%u)\n", (u32)res);
+    }
 
-    printk(KERN_INFO "Allocated new sandboxing slot (%u)\n", (u32)res);
+    spin_unlock(&stack_lock);
     return res;
 }
 
 void release_slot(u8 slot) {
+    spin_lock(&stack_lock);
     free_slots[p_free_slot++] = slot;
+    printk(KERN_INFO "Slot %d released, total %zu slots available now\n", (u32)slot, p_free_slot);
+    spin_unlock(&stack_lock);
 }
 
 void attach_pid_to_slot(pid_t pid, u8 slot) {
