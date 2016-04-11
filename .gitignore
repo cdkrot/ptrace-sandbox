@@ -17,3 +17,12 @@ res/aplusb.out
 src/*~
 *.swp
 src/*.swp
+
+# < kernel building system sucks >
+src/module/*
+!src/module/Makefile
+!src/module/sandboxer-core.h
+!src/module/sandboxer-core.c
+!src/module/sandboxer-proc.h
+!src/module/sandboxer-core.c
+!src/module/hashmap.h
