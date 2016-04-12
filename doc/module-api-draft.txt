@@ -61,10 +61,10 @@ Notification types:
    If "ENFORCING" mode is on, then this slot is sigkilled, otherways, it is left alive.
 * EPERM - Syscall resulted in "eperm" error, probably due to insufficient rights.
    Extra fields: {process pid(pid_t), only with "VERBOSE-PROC" mode}
-   If "ENFORCING" mode is on, then this slot is sigkilled, otherways, it is left alive.
+   If "ENFORCING" mode is on, then this slot is SIGKILL'ed, otherways, it is left alive.
 * SECVIOL - Attempted an forbidden syscall (or restricted syscall and failed security test),
-   If "ENFORCING" mode is on, then this slot is sigkilled, otherways, it is left alive
-   (and "eperm" errno was returned, this doesn't triggers EPERM notification).
+   If "ENFORCING" mode is on, then this slot is SIGKILL'ed, otherways, it is left alive.
+   (and "eperm" errno will be returned, this doesn't trigger EPERM notification).
 
 Notice, that one process can handle multiple sandboxing instances and distinguish them via slot id in notification.
 
