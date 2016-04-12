@@ -19,8 +19,11 @@
 
 #include <linux/sched.h>
 #include <linux/pid.h>
+#include <linux/types.h>
 
 struct sandbox_slot {
+    pid_t mentor;
+
     size_t num_alive; /* num process alive in this slot */
     size_t ref_cnt; /* reference counter, >= num_alive */
     
@@ -35,6 +38,11 @@ struct sandbox_slot {
     /* also should contain security rules */
 };
 
+struct slot_id_info {
+    u8 slot_id;
+    struct llist_node llnode;
+};
+
 /* num of kernel pids */
 #define PID_MAX PID_MAX_LIMIT
 
@@ -46,8 +54,10 @@ struct sandbox_slot {
 
 extern u8 slot_of[PID_MAX];
 extern struct sandbox_slot slots[NUM_SANDBOXING_SLOTS];
+extern struct llist_head awaited_slot_ids[PID_MAX];
+extern struct slot_id_info allocated_slot_ids[PID_MAX];
 
-u8 create_new_slot(void); // return NOT_SANDBOXED, if no slots left.
+u8 create_new_slot(pid_t mentor); // return NOT_SANDBOXED, if no slots left.
 void release_slot(u8); // call only when slot is empty.
 void attach_pid_to_slot(pid_t, u8); // asserts that both pid and slot are valid.
 void detach_pid_from_slot(pid_t pid);  // call when pid died and _have_been_waited_for_.

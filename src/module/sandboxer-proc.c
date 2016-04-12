@@ -16,6 +16,8 @@
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/wait.h>
+#include <linux/slab.h>
 #include "sandboxer-proc.h"
 #include "sandboxer-core.h"
 
@@ -24,10 +26,16 @@ static const char SANDBOX_RESTRICTED[2] = "1";
 static ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer, 
     size_t length, loff_t *offset) {
     /* that is a temporary realization, used only to write one byte ('0' or '1') to /proc/sandboxer */
+    u8 slot;
+
     if (*offset > 0)
         return 0;
     if (strcmp(buffer, SANDBOX_RESTRICTED) == 0) {
-        u8 slot = create_new_slot();
+        if (current->parent == NULL) {
+            /* application should be sandboxed by its parent */
+            return -EFAULT;
+        }
+        slot = create_new_slot(current->parent->pid);
         if (slot == NOT_SANDBOXED)
             return -EFAULT;
         else
@@ -87,14 +95,54 @@ static const struct file_operations sandboxer_proc_entry_fops = {
     .write = sandboxer_proc_entry_write
 };
 
+static DECLARE_WAIT_QUEUE_HEAD(sandboxer_info_wq);
+
+static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t count, loff_t * pos) {
+    struct llist_node* llnode;
+    struct slot_id_info* info;
+    pid_t sleepy;
+
+    if (*pos == 1) {
+        // We have already told all information to the process.
+        return 0;
+    }
+
+    if (llist_empty(&awaited_slot_ids[current->pid])) {
+        // Then current task will sleep till we have something to tell him.
+        printk(KERN_INFO "Process %d now sleeps\n", current->pid);
+        sleepy = current->pid;
+        wait_event_interruptible(sandboxer_info_wq, llist_empty(&awaited_slot_ids[sleepy]));
+    }
+    // Now we have something to tell current task.
+    llnode = llist_del_first(&awaited_slot_ids[current->pid]);
+    info = llist_entry(llnode, struct slot_id_info, llnode);
+    *v = (char)info->slot_id;
+    *pos = 1;
+    return 1;
+};
+
+static const struct file_operations sandboxer_info_fops = {
+    .owner = THIS_MODULE,
+    .read = sandboxer_info_read
+};
+
+static struct proc_dir_entry *sandboxer_info_proc_entry;
+
 int sandboxer_init_proc(void) {
     sandboxer_proc_entry = proc_create("sandboxer", 0666, NULL, &sandboxer_proc_entry_fops);
     if (sandboxer_proc_entry == NULL)
         return -EFAULT;
+
+    sandboxer_info_proc_entry = proc_create("sandboxer_info", 0444, NULL, &sandboxer_info_fops);
+    if (sandboxer_info_proc_entry == NULL)
+        return -EFAULT;
+
     return 0;
 }
 
 void sandboxer_shutdown_proc(void) {
     if (sandboxer_proc_entry != NULL)
         remove_proc_entry("sandboxer", NULL);
+    if (sandboxer_info_proc_entry != NULL)
+        remove_proc_entry("sandboxer_info", NULL);
 }
