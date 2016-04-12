@@ -1,0 +1,74 @@
+This documents provides a draft of interaction between module and userspace
+===========================================================================
+
+Concepts
+========
+
+* Sandboxer operates with the concept of "slot", slot is a way of describing sandboxing instances,
+  processes living in one slot share common restrictions.
+* When you want to start a sandboxing slot you write some data to sandboxer directory.
+  When you do this your process mustn't have any children.
+  And After doing so, your process is making one-way transition to "sandboxed" state.
+* All children processes (if process is allowed to create such) are attached to the same slot.
+* In case of resource accounting, time spent before requesting sandbox is not accounted.
+* Slots can be nested (if upper slot is granted such permission) // if it will be possible.
+  In case of such, all "child" slots are accounted in "parent" slot too.
+* Death of parent slot results in death of child slots.
+* Death of child slots doesn't affect parent slot.
+  Other event such as security violation, memory or time overlimit will not be reported in parent slot.
+* The parent of process, which initiated sandboxing, will recieve all information related to execution.
+
+The Api (draft)
+===============
+
+Interaction is done via files in /proc/sandboxer/.
+
+Recieving notifications
+=======================
+/proc/sandboxer/notifications - use this to recieve notifications of your sandboxing slots.
+
+Result of reading is one of following:
+* LINE with Notification, if there is one pending.
+(Sandboxer doesn't allows to read notifications partially, make sure to provide enough memory).
+* EOF, if no notifications pending, and this process hasn't any sandboxing slots running.
+* IO BLOCK, if no notifications yet, but they will come one day.
+
+You will recieve notifications in order of their appearance.
+
+Notification format:
+{Notification Type (String)} {Slot id (int)} {extra fields} [# {string description, optional}]
+Notification types:
+* CREATE - Just created new slot.
+   Extra fields: {process pid(pid_t), only with "VERBOSE-PROC" mode}
+* TERM - no matter how slot terminated, you will recieve this notification when this will happen.
+   It is guaranteed, that this notification will be sent exactly once per sandboxing instance, and that this will
+   be the last notification related to this instance.
+   After recieving such event, slot id is released and can be assigned to new slot, don't use it.
+* FINISHED - All processes in slot finished their execution.
+   Extra fields: {return code (string)}, {memory stats and timing stats?}
+   If all processes exited succesfully (returned zero), it is zero,
+   otherways it is one of non-zero exit codes.
+   Termination by signal is also counted as non-zero exit code, and will be reported as exit code "SIG@@@@", where @@@@ is signal name.
+* EXIT - If "VERBOSE-PROC" mode is on, then per each death of process in slot you will recieve such notification.
+   Extra fields: {process pid(pid_t)}, {exit code(string)}
+   Exit code has the same format as in "FINISHED" event, int if normal return, "SIG@@@@", if died by signal.
+* SPAWN - If "VERBOSE-PROC" mode is on, then per each spawn of new process you will recieve such notification
+   Extra fields: {process pid(pid_t)}, {parent(pid_t)}
+* TIMELIMIT - All processes in slot were SIGKILL'ed due to timelimit overflow.
+* RTIMELIMIT - All processes in slot were SIGKILL'ed due to real time limit overflow.
+* ENOMEM - Syscall resulted in "enomem" error, this is probably a symptom of memory limit overflow.
+   Extra fields: {process pid(pid_t), only with "VERBOSE-PROC" mode}
+   If "ENFORCING" mode is on, then this slot is sigkilled, otherways, it is left alive.
+* EPERM - Syscall resulted in "eperm" error, probably due to insufficient rights.
+   Extra fields: {process pid(pid_t), only with "VERBOSE-PROC" mode}
+   If "ENFORCING" mode is on, then this slot is sigkilled, otherways, it is left alive.
+* SECVIOL - Attempted an forbidden syscall (or restricted syscall and failed security test),
+   If "ENFORCING" mode is on, then this slot is sigkilled, otherways, it is left alive
+   (and "eperm" errno was returned, this doesn't triggers EPERM notification).
+
+Notice, that one process can handle multiple sandboxing instances and distinguish them via slot id in notification.
+
+Starting sandboxing
+===================
+
+< todo here >
