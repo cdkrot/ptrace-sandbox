@@ -4,7 +4,7 @@
 CC=gcc -Wall -Wextra -std=gnu11
 LD=gcc
 
-all: bin/module-userspace/fast_memdetect bin/module-userspace/smdt-malloc bin/module-userspace/smdt-malloc32
+all: bin/module-userspace/sbmaxmem bin/module-userspace/smdt-malloc bin/module-userspace/smdt-malloc32
 
 help:
 	@echo "Do not call this make directly."
@@ -12,8 +12,8 @@ help:
 
 .PHONY: all help
 
-bin/module-userspace/fast_memdetect: src/module-userspace/fast_memdetect.c
-	${CC} src/module-userspace/fast_memdetect.c -o bin/module-userspace/fast_memdetect
+bin/module-userspace/sbmaxmem: src/module-userspace/sbmaxmem.c
+	${CC} src/module-userspace/sbmaxmem.c -o bin/module-userspace/sbmaxmem
 
 bin/module-userspace/smdt-malloc: src/module-userspace/smdt-malloc.c
 	${CC} src/module-userspace/smdt-malloc.c -o bin/module-userspace/smdt-malloc

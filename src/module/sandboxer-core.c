@@ -30,6 +30,8 @@ MODULE_LICENSE("GPL");
 
 u8 slot_of[PID_MAX];
 struct sandbox_slot slots[NUM_SANDBOXING_SLOTS];
+struct llist_head awaited_slot_ids[PID_MAX];
+struct slot_id_info allocated_slot_ids[PID_MAX];
 
 struct kretprobe sys_mmap_kretprobe;
 struct kprobe on_task_exit_kprobe;
@@ -49,9 +51,10 @@ void sandboxer_init_slots(void) {
         free_slots[i] = NUM_SANDBOXING_SLOTS - 1 - i;
 }
 
-u8 create_new_slot(void) {
+u8 create_new_slot(pid_t mentor) {
     u8 res;
-    
+    struct slot_id_info* info = allocated_slot_ids + current->pid;
+
     spin_lock(&stack_lock);
     
     if (p_free_slot == 0)
@@ -59,11 +62,15 @@ u8 create_new_slot(void) {
     else {
         res = free_slots[--p_free_slot];
         
+        slots[res].mentor = mentor;
         slots[res].num_alive = 0;
         slots[res].memory_used = 0;
         slots[res].max_memory_used = 0;
-        
-        printk(KERN_INFO "Allocated new sandboxing slot (%u)\n", (u32)res);
+
+        info->slot_id = res;
+        llist_add(&info->llnode, &awaited_slot_ids[mentor]);
+
+        printk(KERN_INFO "Allocated new sandboxing slot (%u; mentor is %d)\n", (u32)res, mentor);
     }
 
     spin_unlock(&stack_lock);
@@ -169,10 +176,14 @@ void sandboxer_release_handler(struct task_struct* tsk) {
 }
 
 static int __init sandboxer_module_init(void) {
-    int errno;
+    int errno, i;
     
     printk(KERN_INFO "[sandboxer] init\n");
-   
+  
+    // Initialize awaited_slot_ids lists
+    for (i = 0; i < PID_MAX; i++)
+        init_llist_head(awaited_slot_ids + i);
+
     sandboxer_init_slots();
 
     // Create /proc/sandboxer file

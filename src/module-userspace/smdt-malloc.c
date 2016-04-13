@@ -21,6 +21,8 @@
 
 int main()
 {
+    printf("My pid is %d\n", getpid());
+
     FILE* file = fopen("/proc/sandboxer", "w");
     fprintf(file, "1");
     fclose(file);
