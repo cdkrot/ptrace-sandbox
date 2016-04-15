@@ -2,7 +2,7 @@
 
 # < Configuration >
 CXX=g++ -Wall -Wextra -std=gnu++11 -O2
-CC=gcc -Wall -Wextra -Wimplicit -g
+CC=gcc -Wall -Wextra -Wimplicit -O2
 LD=gcc
 
 all: bin/tests/test_hashmap bin/tests/test-splay
