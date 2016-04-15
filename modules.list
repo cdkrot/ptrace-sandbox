@@ -51,7 +51,8 @@
         "depend": [],
         "build": [
             "mkdir -p bin/module",
-            "./src/module/Makefile"
+            "./src/module/Makefile",
+            "cp ./src/module/sandboxer.ko ./bin/module/"
         ],
         "description": "[kernel module sandboxing] Build sandboxer.ko kernel module",
         "build_if": "! ./src/module/Makefile -q"
@@ -68,8 +69,10 @@
         "depend": [],
         "build": [
             "mkdir -p bin/tests",
+            "mkdir -p obj/tests",
             "./src/tests/make",
-            "./bin/tests/test_hashmap"
+            "./bin/tests/test_hashmap",
+            "./bin/tests/test-splay"
         ],
         "description": "Test some modules"
     }

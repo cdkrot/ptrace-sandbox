@@ -25,6 +25,7 @@
 
 #include "sandboxer-proc.h"
 #include "sandboxer-core.h"
+#include "sandboxer-mentor.h"
 
 MODULE_LICENSE("GPL");
 
@@ -175,6 +176,11 @@ static int __init sandboxer_module_init(void) {
     // Create /proc/sandboxer file
     if ((errno = sandboxer_init_proc()) != 0) {
         printk(KERN_INFO "[sandboxer] ERROR: failed to create /proc/sandboxer file\n");
+        goto out;
+    }
+
+    if ((errno = init_mentor_stuff()) != 0) {
+        printk(KERN_ERR "[sandboxer] ERROR: failed to init mentor stuff\n");
         goto out;
     }
 
