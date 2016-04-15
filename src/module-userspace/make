@@ -4,7 +4,7 @@
 CC=gcc -Wall -Wextra -std=gnu11
 LD=gcc
 
-all: bin/module-userspace/sbmaxmem bin/module-userspace/smdt-malloc
+all: bin/module-userspace/sbmaxmem bin/module-userspace/smdt-malloc bin/module-userspace/smdt-malloc32
 
 help:
 	@echo "Do not call this make directly."
@@ -17,3 +17,7 @@ bin/module-userspace/sbmaxmem: src/module-userspace/sbmaxmem.c
 
 bin/module-userspace/smdt-malloc: src/module-userspace/smdt-malloc.c
 	${CC} src/module-userspace/smdt-malloc.c -o bin/module-userspace/smdt-malloc
+
+bin/module-userspace/smdt-malloc32: src/module-userspace/smdt-malloc.c
+	${CC} src/module-userspace/smdt-malloc.c -o bin/module-userspace/smdt-malloc32 -m32
+

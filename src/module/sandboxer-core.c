@@ -36,6 +36,7 @@ struct slot_id_info allocated_slot_ids[PID_MAX];
 
 struct kretprobe sys_mmap_kretprobe;
 struct kprobe on_task_exit_kprobe;
+struct jprobe syscall_probe;
 
 // stack of open slots.
 u8 free_slots[NUM_SANDBOXING_SLOTS];
@@ -90,6 +91,11 @@ void attach_pid_to_slot(pid_t pid, u8 slot) {
     BUG_ON(slot >= NUM_SANDBOXING_SLOTS);
     BUG_ON(slot_of[pid] != NOT_SANDBOXED);
 
+    /* we want to recieve all events related to syscall enter.
+       so we set this flag.
+       Setting tif_seccomp results in panic()... =( */
+    set_thread_flag(TIF_SYSCALL_AUDIT);
+    
     slot_of[pid] = slot;
     slots[slot].num_alive += 1;
     slots[slot].ref_cnt += 1;
@@ -138,6 +144,14 @@ int sandboxer_sys_mmap_return_handler(struct kretprobe_instance *ri, struct pt_r
             cur_slot->max_memory_used = mem;
     }
     return 0; // Return value is currently ignored
+}
+
+unsigned long sandboxer_syscall_handler(struct pt_regs* regs, u32 arch) {
+    if (slot_of[current->pid] != NOT_SANDBOXED) {
+        printk(KERN_INFO "id: %lu %lu\n", (unsigned long)(regs->orig_ax), (unsigned long)(regs->ax));
+    }
+    jprobe_return();
+    return 0; /* never called */
 }
 
 static void sandboxer_release_handler(struct task_struct* tsk);
@@ -201,11 +215,17 @@ static int __init sandboxer_module_init(void) {
         printk(KERN_INFO "[sandboxer] ERROR: failed to create do_exit probe\n");
         goto out_term_sys_mmap_probe;
     }
-
-    return 0;
+    // register jprobe [syscall_trace_enter_phase1]
+    syscall_probe.kp.symbol_name = "syscall_trace_enter_phase1";
+    syscall_probe.entry = sandboxer_syscall_handler;
+    if ((errno = register_jprobe(&syscall_probe)) != 0) {
+        printk(KERN_INFO "[sandboxer] ERROR: failed to create syscall probe");
+        goto out_term_do_exit_probe;
+    }
     
-//out_term_do_exit_probe:
-//    unregister_kprobe(&on_task_exit_kprobe);
+    return 0;
+out_term_do_exit_probe:
+    unregister_kprobe(&on_task_exit_kprobe);
 out_term_sys_mmap_probe:
     unregister_kretprobe(&sys_mmap_kretprobe);
 out_term_proc:
@@ -218,10 +238,12 @@ out:
 static void __exit sandboxer_module_exit(void) {
     printk(KERN_INFO "[sandboxer] missed %d sys_mmap probe events\n", sys_mmap_kretprobe.nmissed);
     printk(KERN_INFO "[sandboxer] missed %lu do_exit probe events\n", on_task_exit_kprobe.nmissed);
+    printk(KERN_INFO "[sandboxer] missed %lu syscall probe events\n", syscall_probe.kp.nmissed);
     
     printk(KERN_INFO "[sandboxer] exit\n");
     unregister_kretprobe(&sys_mmap_kretprobe);
     unregister_kprobe(&on_task_exit_kprobe);
+    unregister_jprobe(&syscall_probe);
     sandboxer_shutdown_proc();
 }
 
