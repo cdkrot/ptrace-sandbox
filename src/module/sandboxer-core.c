@@ -25,6 +25,7 @@
 
 #include "sandboxer-proc.h"
 #include "sandboxer-core.h"
+#include "sandboxer-mentor.h"
 
 MODULE_LICENSE("GPL");
 
@@ -254,7 +255,14 @@ static int __init sandboxer_module_init(void) {
         goto out_term_proc;
     }
     
+    if ((errno = init_mentor_stuff()) != 0) {
+        printk(KERN_ERR "[sandboxer] ERROR: failed to init mentor stuff\n");
+        goto out_term_probes;
+    }
+
     return 0;
+out_term_probes:
+    init_or_shutdown_probes(false);
 out_term_proc:
     sandboxer_shutdown_proc();
 out:
@@ -264,6 +272,7 @@ out:
 
 static void __exit sandboxer_module_exit(void) {
     printk(KERN_INFO "[sandboxer] shutting down\n");
+    shutdown_mentor_stuff();
     init_or_shutdown_probes(false);
     sandboxer_shutdown_proc();
 }

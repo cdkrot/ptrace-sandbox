@@ -2,8 +2,10 @@
 
 # < Configuration >
 CXX=g++ -Wall -Wextra -std=gnu++11 -O2
+CC=gcc -Wall -Wextra -Wimplicit -O2
+LD=gcc
 
-all: bin/tests/test_hashmap
+all: bin/tests/test_hashmap bin/tests/test-splay
 
 help:
 	@echo "Do not call this make directly."
@@ -13,3 +15,10 @@ help:
 
 bin/tests/test_hashmap: src/tests/test_hashmap.cpp
 	${CXX} -Isrc/module src/tests/test_hashmap.cpp -o bin/tests/test_hashmap
+
+obj/tests/sandboxer-mentor.o: src/module/sandboxer-mentor.c src/tests/test-splay.h
+	${CC} -Isrc/tests src/module/sandboxer-mentor.c -DTEST_SPLAY -c -o obj/tests/sandboxer-mentor.o
+
+bin/tests/test-splay: src/tests/test-splay.c obj/tests/sandboxer-mentor.o
+	${CC} src/tests/test-splay.c -c -o obj/tests/test-splay.o
+	${LD} obj/tests/test-splay.o obj/tests/sandboxer-mentor.o -o bin/tests/test-splay

@@ -26,3 +26,5 @@ src/module/*
 !src/module/sandboxer-proc.h
 !src/module/sandboxer-core.c
 !src/module/hashmap.h
+!src/module/sandboxer-mentor.h
+!src/module/sandboxer-mentor.c
