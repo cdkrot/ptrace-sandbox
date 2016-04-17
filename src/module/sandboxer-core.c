@@ -31,7 +31,6 @@ MODULE_LICENSE("GPL");
 
 u8 slot_of[PID_MAX];
 struct sandbox_slot slots[NUM_SANDBOXING_SLOTS];
-struct llist_head awaited_slot_ids[PID_MAX];
 struct slot_id_info allocated_slot_ids[PID_MAX];
 
 struct kretprobe sys_mmap_kretprobe;
@@ -52,11 +51,16 @@ void sandboxer_init_slots(void) {
         free_slots[i] = NUM_SANDBOXING_SLOTS - 1 - i;
 }
 
+static DEFINE_SPINLOCK(_default_spinlock);
+static DECLARE_WAIT_QUEUE_HEAD(_default_wait_queue_head);
+
 u8 create_new_slot(pid_t mentor) {
     u8 res;
-    struct slot_id_info* info = allocated_slot_ids + current->pid;
+    struct mentor_stuff *ms;
+    struct slot_id_info *info;
+    unsigned long flags, _flags;
 
-    spin_lock(&stack_lock);
+    spin_lock_irqsave(&stack_lock, flags);
     
     if (p_free_slot == 0)
         res = NOT_SANDBOXED;
@@ -68,13 +72,36 @@ u8 create_new_slot(pid_t mentor) {
         slots[res].memory_used = 0;
         slots[res].max_memory_used = 0;
 
+        info = kmalloc(sizeof(struct slot_id_info), GFP_ATOMIC);
+        if (!info) {
+            printk(KERN_ERR "Could not allocate new slot_id_info struct.");
+            return NOT_SANDBOXED;
+        }
         info->slot_id = res;
-        llist_add(&info->llnode, &awaited_slot_ids[mentor]);
+
+        ms = get_mentor_stuff(mentor);
+        if (ms == NULL) {
+            ms = create_mentor_stuff(mentor);
+            ms->awaited_slot_ids.first = NULL;
+            spin_lock_init(&(ms->awaited_lock));
+            INIT_WAIT_QUEUE_HEAD(ms->info_wq);
+        }
+        printk(KERN_INFO "ms created");
+        spin_lock_irqsave(&(ms->awaited_lock), _flags);
+        printk(KERN_INFO "awaited_lock locked");
+        llist_add(&(info->llnode), &(ms->awaited_slot_ids));
+        if (waitqueue_active(&(ms->info_wq))) 
+            wake_up_interruptible(&(ms->info_wq));
+        printk(KERN_INFO "woke up");
+        spin_unlock_irqrestore(&(ms->awaited_lock), _flags);
+        printk(KERN_INFO "awaited_lock unlocked");
+
+        printk(KERN_INFO "Added an llnode to llist located at %p\n", &(ms->awaited_slot_ids));
 
         printk(KERN_INFO "Allocated new sandboxing slot (%u; mentor is %d)\n", (u32)res, mentor);
     }
 
-    spin_unlock(&stack_lock);
+    spin_unlock_irqrestore(&stack_lock, flags);
     return res;
 }
 
@@ -177,14 +204,10 @@ void sandboxer_release_handler(struct task_struct* tsk) {
 }
 
 static int __init sandboxer_module_init(void) {
-    int errno, i;
+    int errno;
     
     printk(KERN_INFO "[sandboxer] init\n");
   
-    // Initialize awaited_slot_ids lists
-    for (i = 0; i < PID_MAX; i++)
-        init_llist_head(awaited_slot_ids + i);
-
     sandboxer_init_slots();
 
     // Create /proc/sandboxer file

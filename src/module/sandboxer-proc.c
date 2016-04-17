@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include "sandboxer-proc.h"
 #include "sandboxer-core.h"
+#include "sandboxer-mentor.h"
 
 static const char SANDBOX_RESTRICTED[2] = "1";
 
@@ -95,28 +96,48 @@ static const struct file_operations sandboxer_proc_entry_fops = {
     .write = sandboxer_proc_entry_write
 };
 
-static DECLARE_WAIT_QUEUE_HEAD(sandboxer_info_wq);
-
-static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t count, loff_t * pos) {
+static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t count, loff_t *pos) {
     struct llist_node* llnode;
     struct slot_id_info* info;
-    pid_t sleepy;
+    struct mentor_stuff* ms;
+
+    printk(KERN_INFO "sandboxer_info_read called");
 
     if (*pos == 1) {
         // We have already told all information to the process.
         return 0;
     }
 
-    if (llist_empty(&awaited_slot_ids[current->pid])) {
+    ms = get_mentor_stuff(current->pid);
+    if (!ms) {
+        ms = create_mentor_stuff(current->pid);
+        ms->awaited_slot_ids.first = NULL;
+        spin_lock_init(&(ms->awaited_lock));
+        INIT_WAIT_QUEUE_HEAD(ms->info_wq);
+    }
+
+    BUG_ON(!ms);
+
+    if (llist_empty(&(ms->awaited_slot_ids))) {
         // Then current task will sleep till we have something to tell him.
-        printk(KERN_INFO "Process %d now sleeps\n", current->pid);
-        sleepy = current->pid;
-        wait_event_interruptible(sandboxer_info_wq, llist_empty(&awaited_slot_ids[sleepy]));
+        printk(KERN_INFO "Process %d now sleeps (waiting for llist located in %p)\n", current->pid, &(ms->awaited_slot_ids));
+        wait_event_interruptible(ms->info_wq, !llist_empty(&(ms->awaited_slot_ids)));
+        printk(KERN_INFO "Process %d woke up\n", current->pid);
     }
     // Now we have something to tell current task.
-    llnode = llist_del_first(&awaited_slot_ids[current->pid]);
+    printk(KERN_INFO "Setting up a spinlock for %d.\n", current->pid);
+    spin_lock(&(ms->awaited_lock));
+    BUG_ON(llist_empty(&(ms->awaited_slot_ids)));
+    llnode = llist_del_first(&(ms->awaited_slot_ids));
+    spin_unlock(&(ms->awaited_lock));
+
+    BUG_ON(!llnode);
     info = llist_entry(llnode, struct slot_id_info, llnode);
+    BUG_ON(!info);
     *v = (char)info->slot_id;
+    llnode = NULL;
+    kfree(info);
+    info = NULL;
     *pos = 1;
     return 1;
 };

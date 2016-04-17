@@ -54,12 +54,18 @@ struct slot_id_info {
 
 extern u8 slot_of[PID_MAX];
 extern struct sandbox_slot slots[NUM_SANDBOXING_SLOTS];
-extern struct llist_head awaited_slot_ids[PID_MAX];
-extern struct slot_id_info allocated_slot_ids[PID_MAX];
 
 u8 create_new_slot(pid_t mentor); // return NOT_SANDBOXED, if no slots left.
 void release_slot(u8); // call only when slot is empty.
 void attach_pid_to_slot(pid_t, u8); // asserts that both pid and slot are valid.
 void detach_pid_from_slot(pid_t pid);  // call when pid died and _have_been_waited_for_.
+
+#define SB_INIT_LIST_HEAD(name, _prev, _next) \
+    name.prev = _prev; \
+    name.next = _next
+
+#define INIT_WAIT_QUEUE_HEAD(name) \
+    spin_lock_init(&(name).lock); \
+    SB_INIT_LIST_HEAD(name.task_list, &(name).task_list, &(name).task_list)
 
 #endif //SANDBOXER_CORE_H_
