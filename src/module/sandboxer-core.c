@@ -52,9 +52,6 @@ void sandboxer_init_slots(void) {
         free_slots[i] = NUM_SANDBOXING_SLOTS - 1 - i;
 }
 
-static DEFINE_SPINLOCK(_default_spinlock);
-static DECLARE_WAIT_QUEUE_HEAD(_default_wait_queue_head);
-
 u8 create_new_slot(pid_t mentor) {
     u8 res;
     struct mentor_stuff *ms;
