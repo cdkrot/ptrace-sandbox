@@ -56,51 +56,57 @@ u8 create_new_slot(pid_t mentor) {
     u8 res;
     struct mentor_stuff *ms;
     struct slot_id_info *info;
-    unsigned long flags, _flags;
 
-    spin_lock_irqsave(&stack_lock, flags);
+    spin_lock(&stack_lock);
     
-    if (p_free_slot == 0)
-        res = NOT_SANDBOXED;
-    else {
-        res = free_slots[--p_free_slot];
-        
-        slots[res].mentor = mentor;
-        slots[res].num_alive = 0;
-        slots[res].memory_used = 0;
-        slots[res].max_memory_used = 0;
-
-        info = kmalloc(sizeof(struct slot_id_info), GFP_ATOMIC);
-        if (!info) {
-            printk(KERN_ERR "Could not allocate new slot_id_info struct.");
-            return NOT_SANDBOXED;
-        }
-        info->slot_id = res;
-
-        ms = get_mentor_stuff(mentor);
-        if (ms == NULL) {
-            ms = create_mentor_stuff(mentor);
-            ms->awaited_slot_ids.first = NULL;
-            spin_lock_init(&(ms->awaited_lock));
-            INIT_WAIT_QUEUE_HEAD(ms->info_wq);
-        }
-        printk(KERN_INFO "ms created");
-        spin_lock_irqsave(&(ms->awaited_lock), _flags);
-        printk(KERN_INFO "awaited_lock locked");
-        llist_add(&(info->llnode), &(ms->awaited_slot_ids));
-        if (waitqueue_active(&(ms->info_wq))) 
-            wake_up_interruptible(&(ms->info_wq));
-        printk(KERN_INFO "woke up");
-        spin_unlock_irqrestore(&(ms->awaited_lock), _flags);
-        printk(KERN_INFO "awaited_lock unlocked");
-
-        printk(KERN_INFO "Added an llnode to llist located at %p\n", &(ms->awaited_slot_ids));
-
-        printk(KERN_INFO "Allocated new sandboxing slot (%u; mentor is %d)\n", (u32)res, mentor);
+    if (p_free_slot == 0) {
+        spin_unlock(&stack_lock);
+        return NOT_SANDBOXED;
     }
 
-    spin_unlock_irqrestore(&stack_lock, flags);
+    res = free_slots[--p_free_slot];
+
+    spin_unlock(&stack_lock);
+    
+    slots[res].mentor = mentor;
+    slots[res].num_alive = 0;
+    slots[res].memory_used = 0;
+    slots[res].max_memory_used = 0;
+    
+    info = kmalloc(sizeof(struct slot_id_info), GFP_ATOMIC);
+    if (!info)
+        goto out_release_slot;
+    
+    info->slot_id = res;
+    
+    ms = get_mentor_stuff(mentor);
+    if (ms == NULL) {
+        ms = create_mentor_stuff(mentor);
+        if (ms == NULL)
+            goto out_release_info;
+        
+        ms->awaited_slot_ids.first = NULL;
+        spin_lock_init(&(ms->awaited_lock));
+        INIT_WAIT_QUEUE_HEAD(ms->info_wq);
+    }
+
+    spin_lock(&(ms->awaited_lock));
+    
+    llist_add(&(info->llnode), &(ms->awaited_slot_ids));
+    if (waitqueue_active(&(ms->info_wq))) 
+        wake_up_interruptible(&(ms->info_wq));
+
+    spin_unlock(&(ms->awaited_lock));
+    
+    printk(KERN_INFO "Added an llnode to llist located at %p\n", &(ms->awaited_slot_ids));        
+    printk(KERN_INFO "Allocated new sandboxing slot (%u; mentor is %d)\n", (u32)res, mentor);
+
     return res;
+out_release_info:
+    kfree(info);
+out_release_slot:
+    release_slot(res);
+    return NOT_SANDBOXED;
 }
 
 void release_slot(u8 slot) {
