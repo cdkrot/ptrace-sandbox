@@ -34,7 +34,7 @@ struct sandbox_slot {
     size_t time_used;
     size_t time_limit;
 
-//    DEFINE_SPINLOCK(slot_lock);
+//  spinlock_t spinlock;
     /* also should contain security rules */
 };
 

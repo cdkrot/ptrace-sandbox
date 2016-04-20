@@ -38,6 +38,10 @@ struct splay_tree_node {
 
 static struct splay_tree_node *splay_tree_root;
 
+/* All operations with splay tree (outer api),
+   should be protected with following lock */
+DEFINE_SPINLOCK(splay_lock);
+
 static struct splay_tree_node *left_rotate(struct splay_tree_node *root) {
     struct splay_tree_node *rt = root->R;
     root->R = rt->L;
@@ -185,29 +189,45 @@ void shutdown_mentor_stuff(void) {
 
 struct mentor_stuff *get_mentor_stuff(pid_t pid) {
     struct splay_tree_node *n;
-
+    struct mentor_stuff* ms;
+    
+    spin_lock(&splay_lock);
+    
     n = splay_tree_find(splay_tree_root, pid, NULL);
-    if (n)
-        return &(n->val);
-    return NULL;
+    ms = (n != NULL ? &(n->val) : NULL);
+
+    spin_unlock(&splay_lock);
+    
+    return ms;
 }
 
 struct mentor_stuff *create_mentor_stuff(pid_t pid) {
     struct splay_tree_node *n;
 
     n = kmalloc(sizeof(struct splay_tree_node), GFP_KERNEL);
+    if (n == NULL)
+        return NULL;
+    
     n->val.pid = pid;
+
+    spin_lock(&splay_lock);
     splay_tree_add(n);
+    spin_unlock(&splay_lock);
+    
     return &(n->val);
 }
 
 void free_mentor_stuff(pid_t pid) {
     struct splay_tree_node *n;
 
+    spin_lock(&splay_lock);
+    
     n = splay_tree_find(splay_tree_root, pid, NULL);
     BUG_ON(n == NULL);
     splay_tree_remove(n);
+
+    spin_unlock(&splay_lock);
+
     kfree(n);
-    n = NULL;
 }
 

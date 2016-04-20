@@ -110,14 +110,22 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
 
     ms = get_mentor_stuff(current->pid);
     if (!ms) {
+        // Same bug as in sandboxer-core.c
+        // Please read todo there.
+        
         ms = create_mentor_stuff(current->pid);
+
+        BUG_ON(!ms);
+        
         ms->awaited_slot_ids.first = NULL;
-        spin_lock_init(&(ms->awaited_lock));
+        spin_lock_init(&(ms->lock));
         INIT_WAIT_QUEUE_HEAD(ms->info_wq);
     }
 
-    BUG_ON(!ms);
-
+    // TODO: linked list is accessed from multiple threads,
+    // and modified concurrently.
+    // Need thread-safety.
+    
     if (llist_empty(&(ms->awaited_slot_ids))) {
         // Then current task will sleep till we have something to tell him.
         printk(KERN_INFO "Process %d now sleeps (waiting for llist located in %p)\n", current->pid, &(ms->awaited_slot_ids));
@@ -126,10 +134,10 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
     }
     // Now we have something to tell current task.
     printk(KERN_INFO "Setting up a spinlock for %d.\n", current->pid);
-    spin_lock(&(ms->awaited_lock));
+    spin_lock(&(ms->lock));
     BUG_ON(llist_empty(&(ms->awaited_slot_ids)));
     llnode = llist_del_first(&(ms->awaited_slot_ids));
-    spin_unlock(&(ms->awaited_lock));
+    spin_unlock(&(ms->lock));
 
     BUG_ON(!llnode);
     info = llist_entry(llnode, struct slot_id_info, llnode);

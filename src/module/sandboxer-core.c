@@ -19,7 +19,6 @@
 #include <linux/init.h>
 #include <linux/kprobes.h>
 #include <linux/slab.h>
-#include <linux/proc_fs.h>
 #include <linux/pid.h>
 #include <linux/string.h>
 
@@ -81,22 +80,31 @@ u8 create_new_slot(pid_t mentor) {
     
     ms = get_mentor_stuff(mentor);
     if (ms == NULL) {
+        // TODO: the following api allowes following threading bug:
+        // 1. ms is created in thread A, but not initialized yet.
+        // 2. Thread A is suspended and thread B is running.
+        // 3. Thread B is mentor/other sandboxee, and assumes that ms is initialized.
+        // 4. Shit happens.
+        // 5. Thread A awakes and tries to initilize ms.
+
+        // Suggested Solution: provide uniform get-or-create api.
+        
         ms = create_mentor_stuff(mentor);
         if (ms == NULL)
             goto out_release_info;
         
         ms->awaited_slot_ids.first = NULL;
-        spin_lock_init(&(ms->awaited_lock));
+        spin_lock_init(&(ms->lock));
         INIT_WAIT_QUEUE_HEAD(ms->info_wq);
     }
 
-    spin_lock(&(ms->awaited_lock));
+    spin_lock(&(ms->lock));
     
     llist_add(&(info->llnode), &(ms->awaited_slot_ids));
     if (waitqueue_active(&(ms->info_wq))) 
         wake_up_interruptible(&(ms->info_wq));
 
-    spin_unlock(&(ms->awaited_lock));
+    spin_unlock(&(ms->lock));
     
     printk(KERN_INFO "Added an llnode to llist located at %p\n", &(ms->awaited_slot_ids));        
     printk(KERN_INFO "Allocated new sandboxing slot (%u; mentor is %d)\n", (u32)res, mentor);
