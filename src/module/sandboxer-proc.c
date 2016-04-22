@@ -108,19 +108,9 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
         return 0;
     }
 
-    ms = get_mentor_stuff(current->pid);
-    if (!ms) {
-        // Same bug as in sandboxer-core.c
-        // Please read todo there.
-        
-        ms = create_mentor_stuff(current->pid);
-
-        BUG_ON(!ms);
-        
-        ms->awaited_slot_ids.first = NULL;
-        spin_lock_init(&(ms->lock));
-        INIT_WAIT_QUEUE_HEAD(ms->info_wq);
-    }
+    ms = manage_mentor_stuff(current->pid, MENTOR_GET);
+    if (!ms)
+        return 0; /* We do this, when it's EOF, right? */
 
     // TODO: linked list is accessed from multiple threads,
     // and modified concurrently.
@@ -132,6 +122,7 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
         wait_event_interruptible(ms->info_wq, !llist_empty(&(ms->awaited_slot_ids)));
         printk(KERN_INFO "Process %d woke up\n", current->pid);
     }
+    
     // Now we have something to tell current task.
     printk(KERN_INFO "Setting up a spinlock for %d.\n", current->pid);
     spin_lock(&(ms->lock));

@@ -9,6 +9,8 @@ Review модуля.
 2 - wishlist
 
 0) 5   - Fix threading bugs related to mentoring (see comments in code).
+9) 5   - syscall probe не работает на 4.6
+A) 4.5 - идея по поводу Splay[8]
 1) 4.5 - Предлагаю ввести "notification api", черновик протокола есть в doc/
 2) 4.5 - forks, vforks, clone. (также потребует thread-safe struct sandbox_slot)
 3) 4.5 - Засунуть всё информацию, имеющую отношение к процессу в сплей-дерево (включая slot_of).

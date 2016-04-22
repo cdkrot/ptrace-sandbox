@@ -78,25 +78,9 @@ u8 create_new_slot(pid_t mentor) {
     
     info->slot_id = res;
     
-    ms = get_mentor_stuff(mentor);
-    if (ms == NULL) {
-        // TODO: the following api allowes following threading bug:
-        // 1. ms is created in thread A, but not initialized yet.
-        // 2. Thread A is suspended and thread B is running.
-        // 3. Thread B is mentor/other sandboxee, and assumes that ms is initialized.
-        // 4. Shit happens.
-        // 5. Thread A awakes and tries to initilize ms.
-
-        // Suggested Solution: provide uniform get-or-create api.
-        
-        ms = create_mentor_stuff(mentor);
-        if (ms == NULL)
-            goto out_release_info;
-        
-        ms->awaited_slot_ids.first = NULL;
-        spin_lock_init(&(ms->lock));
-        INIT_WAIT_QUEUE_HEAD(ms->info_wq);
-    }
+    ms = manage_mentor_stuff(mentor, MENTOR_GET_OR_CREATE);
+    if (ms == NULL)
+        goto out_release_info;
 
     spin_lock(&(ms->lock));
     

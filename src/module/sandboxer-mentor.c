@@ -21,6 +21,7 @@
 #ifndef TEST_SPLAY
 
 #include <linux/slab.h>
+#include <stdbool.h>
 
 #include "sandboxer-core.h"
 #include "sandboxer-mentor.h"
@@ -30,6 +31,14 @@
 #include "test-splay.h"
 
 #endif
+
+void init_mentor_stuff_struct(struct mentor_stuff* ms) {
+    BUG_ON(ms == NULL);
+
+    ms->awaited_slot_ids.first = NULL;
+    spin_lock_init(&(ms->lock));
+    INIT_WAIT_QUEUE_HEAD(ms->info_wq);
+}
 
 struct splay_tree_node {
     struct mentor_stuff val;
@@ -187,47 +196,55 @@ void shutdown_mentor_stuff(void) {
     }
 }
 
-struct mentor_stuff *get_mentor_stuff(pid_t pid) {
-    struct splay_tree_node *n;
+struct mentor_stuff *manage_mentor_stuff(pid_t pid, enum mentor_stuff_request mode) {
+    struct splay_tree_node* node;
     struct mentor_stuff* ms;
-    
+
     spin_lock(&splay_lock);
+
+    ms = NULL;
+    node = splay_tree_find(splay_tree_root, pid, NULL);
     
-    n = splay_tree_find(splay_tree_root, pid, NULL);
-    ms = (n != NULL ? &(n->val) : NULL);
+    switch (mode) {
+    case MENTOR_DESTROY:
+        BUG_ON(node == NULL);
+    case MENTOR_SOFT_DESTROY:
+        splay_tree_remove(node);
+        kfree(node);
+        break;
+    case MENTOR_GET:
+    case MENTOR_GET_OR_CREATE:
+        if (node != NULL)
+            ms = &(node->val);
+        if (ms != NULL || mode == MENTOR_GET)
+            break;
+    case MENTOR_CREATE:
+        BUG_ON(node != NULL);
+        node = kmalloc(sizeof(struct splay_tree_node), GFP_KERNEL);
+        if (node == NULL)
+            break;
+        node->val.pid = pid;
+        splay_tree_add(node);
+        ms = &(node->val);
+        init_mentor_stuff_struct(ms);
+        break;
+    default:
+        BUG_ON(true);
+    }
 
     spin_unlock(&splay_lock);
-    
     return ms;
 }
 
+struct mentor_stuff *get_mentor_stuff(pid_t pid) {
+    return manage_mentor_stuff(pid, MENTOR_GET);
+}
+
 struct mentor_stuff *create_mentor_stuff(pid_t pid) {
-    struct splay_tree_node *n;
-
-    n = kmalloc(sizeof(struct splay_tree_node), GFP_KERNEL);
-    if (n == NULL)
-        return NULL;
-    
-    n->val.pid = pid;
-
-    spin_lock(&splay_lock);
-    splay_tree_add(n);
-    spin_unlock(&splay_lock);
-    
-    return &(n->val);
+    return manage_mentor_stuff(pid, MENTOR_CREATE);
 }
 
 void free_mentor_stuff(pid_t pid) {
-    struct splay_tree_node *n;
-
-    spin_lock(&splay_lock);
-    
-    n = splay_tree_find(splay_tree_root, pid, NULL);
-    BUG_ON(n == NULL);
-    splay_tree_remove(n);
-
-    spin_unlock(&splay_lock);
-
-    kfree(n);
+    manage_mentor_stuff(pid, MENTOR_DESTROY);
 }
 
