@@ -7,10 +7,12 @@ Review модуля.
 4 - Достаточно важное
 3 - важное, но может подождать.
 2 - wishlist
+PR - proposal
 
 0) 5   - Fix threading bugs related to mentoring (see comments in code).
-9) 5   - syscall probe не работает на 4.6
 A) 4.5 - идея по поводу Splay[8]
+B) PR. - s/waitqueue/semaphore/
+C) PR. - Написать splay через container_of, в духе линуксовых листов.
 1) 4.5 - Предлагаю ввести "notification api", черновик протокола есть в doc/
 2) 4.5 - forks, vforks, clone. (также потребует thread-safe struct sandbox_slot)
 3) 4.5 - Засунуть всё информацию, имеющую отношение к процессу в сплей-дерево (включая slot_of).
