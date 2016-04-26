@@ -21,6 +21,7 @@
 #include <linux/pid.h>
 #include <linux/llist.h>
 #include <linux/wait.h>
+#include <linux/semaphore.h>
 
 #include "sandboxer-core.h"
 
@@ -28,7 +29,7 @@ struct mentor_stuff {
     pid_t pid;
     struct llist_head awaited_slot_ids;
     spinlock_t lock; /* It is not only lock to info_wq, but to the whole struct */
-    wait_queue_head_t info_wq;
+    struct semaphore counter;
 };
 
 enum mentor_stuff_request {

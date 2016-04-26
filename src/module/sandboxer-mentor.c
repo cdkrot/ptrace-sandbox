@@ -37,7 +37,8 @@ void init_mentor_stuff_struct(struct mentor_stuff* ms) {
 
     ms->awaited_slot_ids.first = NULL;
     spin_lock_init(&(ms->lock));
-    INIT_WAIT_QUEUE_HEAD(ms->info_wq);
+
+    sema_init(&(ms->counter), 0);
 }
 
 struct splay_tree_node {

@@ -112,19 +112,8 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
     if (!ms)
         return 0; /* We do this, when it's EOF, right? */
 
-    // TODO: linked list is accessed from multiple threads,
-    // and modified concurrently.
-    // Need thread-safety.
+    while (down_interruptible(&(ms->counter)) == -EINTR) {}
     
-    if (llist_empty(&(ms->awaited_slot_ids))) {
-        // Then current task will sleep till we have something to tell him.
-        printk(KERN_INFO "Process %d now sleeps (waiting for llist located in %p)\n", current->pid, &(ms->awaited_slot_ids));
-        wait_event_interruptible(ms->info_wq, !llist_empty(&(ms->awaited_slot_ids)));
-        printk(KERN_INFO "Process %d woke up\n", current->pid);
-    }
-    
-    // Now we have something to tell current task.
-    printk(KERN_INFO "Setting up a spinlock for %d.\n", current->pid);
     spin_lock(&(ms->lock));
     BUG_ON(llist_empty(&(ms->awaited_slot_ids)));
     llnode = llist_del_first(&(ms->awaited_slot_ids));

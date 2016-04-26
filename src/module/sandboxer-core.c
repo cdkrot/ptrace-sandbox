@@ -83,12 +83,10 @@ u8 create_new_slot(pid_t mentor) {
         goto out_release_info;
 
     spin_lock(&(ms->lock));
-    
     llist_add(&(info->llnode), &(ms->awaited_slot_ids));
-    if (waitqueue_active(&(ms->info_wq))) 
-        wake_up_interruptible(&(ms->info_wq));
-
     spin_unlock(&(ms->lock));
+    
+    up(&(ms->counter));
     
     printk(KERN_INFO "Added an llnode to llist located at %p\n", &(ms->awaited_slot_ids));        
     printk(KERN_INFO "Allocated new sandboxing slot (%u; mentor is %d)\n", (u32)res, mentor);
