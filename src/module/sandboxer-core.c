@@ -231,10 +231,10 @@ int init_or_shutdown_probes(bool init) {
             goto out_term_do_exit_probe;
         }
     
-        sysret_probe.kp.symbol_name = "syscall_trace_leave";
+        sysret_probe.kp.symbol_name = "syscall_return_slowpath";
         sysret_probe.entry = sandboxer_sysret_handler;
         if ((errno = register_jprobe(&sysret_probe)) != 0) {
-            printk(KERN_INFO "[sandboxer] ERROR: failed to create syscall probe");
+            printk(KERN_INFO "[sandboxer] ERROR: failed to create syscall return probe");
             goto out_term_sys_enter_probe;
         }
         
