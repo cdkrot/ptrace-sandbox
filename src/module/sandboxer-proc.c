@@ -19,6 +19,7 @@
 #include <linux/wait.h>
 #include <linux/slab.h>
 #include "sandboxer-proc.h"
+#include "sandboxer-slot.h"
 #include "sandboxer-core.h"
 #include "sandboxer-mentor.h"
 
@@ -36,11 +37,11 @@ static ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer
             /* application should be sandboxed by its parent */
             return -EFAULT;
         }
-        slot = create_new_slot(current->parent->pid);
+        slot = create_new_slot(current->parent);
         if (slot == NOT_SANDBOXED)
-            return -EFAULT;
-        else
-            attach_pid_to_slot(current->pid, slot);
+            return -ENOMEM;
+        attach_task_to_slot(slot);
+        decrease_slot_refcnt(slot);
     } else
         return -EFAULT;
     *offset = 2;
@@ -50,8 +51,10 @@ static ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer
 static void* sandboxer_seq_start(struct seq_file *s, loff_t *pos) {
     static struct sandbox_slot* slot;
 
-    if (*pos == 0 && slot_of[current->pid] != NOT_SANDBOXED)
-        slot = &(slots[slot_of[current->pid]]);
+    // TODO: is following safe?
+    
+    if (*pos == 0 && get_slot_of(current) != NOT_SANDBOXED)
+        slot = get_slot_by_id(get_slot_of(current));
     else {
         *pos = 0;
         slot = NULL;
@@ -63,7 +66,7 @@ static void* sandboxer_seq_start(struct seq_file *s, loff_t *pos) {
 static int sandboxer_seq_show(struct seq_file *s, void *v) {
     struct sandbox_slot* slot = v;
 
-    seq_printf(s, "%lu", slot->max_memory_used);
+    seq_printf(s, "%lu", slot->max_mem_used);
     return 0;
 }
 
