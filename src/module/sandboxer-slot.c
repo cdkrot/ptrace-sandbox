@@ -32,11 +32,13 @@ size_t p_free_slot = NUM_SANDBOXING_SLOTS;
 DEFINE_SPINLOCK(stack_lock);
 
 void release_slot(u8 slot) {
-    spin_lock(&stack_lock);
+    unsigned long irqflags;
+    
+    spin_lock_irqsave(&stack_lock, irqflags);
     BUG_ON(p_free_slot >= NUM_SANDBOXING_SLOTS);
     free_slots[p_free_slot++] = slot;
     printk(KERN_INFO "Slot %d released, total %zu slots available now\n", (u32)slot, p_free_slot);
-    spin_unlock(&stack_lock);
+    spin_unlock_irqrestore(&stack_lock, irqflags);
 }
 
 int init_or_shutdown_slots(bool is_init) {
@@ -66,17 +68,18 @@ struct sandbox_slot* get_slot_by_id(slot_id_type id) {
 }
 
 slot_id_type create_new_slot(struct task_struct* mentor) {
+    unsigned long irqflags;
     slot_id_type res;
     struct mentor_stuff* ms;
     struct slot_id_info* info;
 
-    spin_lock(&stack_lock);
+    spin_lock_irqsave(&stack_lock, irqflags);
     if (p_free_slot == 0) {
-        spin_unlock(&stack_lock);
+        spin_unlock_irqrestore(&stack_lock, irqflags);
         return NOT_SANDBOXED;
     }
     res = free_slots[--p_free_slot];
-    spin_unlock(&stack_lock);
+    spin_unlock_irqrestore(&stack_lock, irqflags);
     
     slots[res].mentor = mentor;
     slots[res].num_alive = 0;
@@ -94,9 +97,9 @@ slot_id_type create_new_slot(struct task_struct* mentor) {
     if (ms == NULL)
         goto out_release_info;
 
-    spin_lock(&(ms->lock));
+    spin_lock_irqsave(&(ms->lock), irqflags);
     llist_add(&(info->llnode), &(ms->awaited_slot_ids));
-    spin_unlock(&(ms->lock));
+    spin_unlock_irqrestore(&(ms->lock), irqflags);
     
     up(&(ms->counter));
     

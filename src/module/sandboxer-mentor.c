@@ -98,6 +98,8 @@ static inline int which_child(struct splay_tree_node *up, struct splay_tree_node
 }
 
 static struct splay_tree_node *splay(struct splay_tree_node *v) {
+    BUG_ON(v == NULL);
+    
     while (v->par) {
         if (!(v->par->par)) {
             // zig
@@ -198,10 +200,11 @@ void shutdown_mentor_stuff(void) {
 }
 
 struct mentor_stuff *manage_mentor_stuff(pid_t pid, enum mentor_stuff_request mode) {
+    unsigned long flags;
     struct splay_tree_node* node;
     struct mentor_stuff* ms;
 
-    spin_lock(&splay_lock);
+    spin_lock_irqsave(&splay_lock, flags);
 
     ms = NULL;
     node = splay_tree_find(splay_tree_root, pid, NULL);
@@ -233,7 +236,7 @@ struct mentor_stuff *manage_mentor_stuff(pid_t pid, enum mentor_stuff_request mo
         BUG_ON(true);
     }
 
-    spin_unlock(&splay_lock);
+    spin_unlock_irqrestore(&splay_lock, flags);
     return ms;
 }
 

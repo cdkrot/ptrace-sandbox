@@ -100,6 +100,7 @@ static const struct file_operations sandboxer_proc_entry_fops = {
 };
 
 static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t count, loff_t *pos) {
+    unsigned long flags;
     struct llist_node* llnode;
     struct slot_id_info* info;
     struct mentor_stuff* ms;
@@ -117,10 +118,10 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
 
     while (down_interruptible(&(ms->counter)) == -EINTR) {}
     
-    spin_lock(&(ms->lock));
+    spin_lock_irqsave(&(ms->lock), flags);
     BUG_ON(llist_empty(&(ms->awaited_slot_ids)));
     llnode = llist_del_first(&(ms->awaited_slot_ids));
-    spin_unlock(&(ms->lock));
+    spin_unlock_irqrestore(&(ms->lock), flags);
 
     BUG_ON(!llnode);
     info = llist_entry(llnode, struct slot_id_info, llnode);
