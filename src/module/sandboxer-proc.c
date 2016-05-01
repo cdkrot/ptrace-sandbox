@@ -35,7 +35,7 @@ static ssize_t sandboxer_proc_entry_write(struct file* _file, const char *buffer
     if (strcmp(buffer, SANDBOX_RESTRICTED) == 0) {
         if (current->parent == NULL) {
             /* application should be sandboxed by its parent */
-            return -EFAULT;
+            return -EINVAL;
         }
         slot = create_new_slot(current->parent);
         if (slot == NOT_SANDBOXED)
@@ -104,7 +104,8 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
     struct llist_node* llnode;
     struct slot_id_info* info;
     struct mentor_stuff* ms;
-
+    int errno;
+    
     printk(KERN_INFO "sandboxer_info_read called");
 
     if (*pos == 1) {
@@ -116,7 +117,8 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
     if (!ms)
         return 0; /* We do this, when it's EOF, right? */
 
-    while (down_interruptible(&(ms->counter)) == -EINTR) {}
+    if ((errno = down_interruptible(&(ms->counter))) != 0)
+        return errno;
     
     spin_lock_irqsave(&(ms->lock), flags);
     BUG_ON(llist_empty(&(ms->awaited_slot_ids)));
@@ -127,9 +129,7 @@ static ssize_t sandboxer_info_read (struct file *_file, char __user *v, size_t c
     info = llist_entry(llnode, struct slot_id_info, llnode);
     BUG_ON(!info);
     *v = (char)info->slot_id;
-    llnode = NULL;
     kfree(info);
-    info = NULL;
     *pos = 1;
     return 1;
 };
@@ -142,13 +142,20 @@ static const struct file_operations sandboxer_info_fops = {
 static struct proc_dir_entry *sandboxer_info_proc_entry;
 
 int sandboxer_init_proc(void) {
-    sandboxer_proc_entry = proc_create("sandboxer", 0666, NULL, &sandboxer_proc_entry_fops);
-    if (sandboxer_proc_entry == NULL)
-        return -EFAULT;
+    sandboxer_proc_entry = NULL;
+    sandboxer_info_proc_entry = NULL;
 
+    sandboxer_proc_entry = proc_create("sandboxer", 0666, NULL, &sandboxer_proc_entry_fops);
+    if (sandboxer_proc_entry == NULL) {
+        sandboxer_shutdown_proc();
+        return -EBUSY;
+    }
+        
     sandboxer_info_proc_entry = proc_create("sandboxer_info", 0444, NULL, &sandboxer_info_fops);
-    if (sandboxer_info_proc_entry == NULL)
-        return -EFAULT;
+    if (sandboxer_info_proc_entry == NULL) {
+        sandboxer_shutdown_proc();
+        return -EBUSY;
+    }
 
     return 0;
 }
