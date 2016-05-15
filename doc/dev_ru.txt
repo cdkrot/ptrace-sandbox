@@ -1,0 +1,295 @@
+sandboxer - разработка, схема и TODO
+
+На текущий момент
+=================
+Сейчас важно написать минимальный работоспособный скелет для дальнейшего
+допиливания. Важно предусмотреть все факапы, связанные с многопоточностью и
+исключить все возможности для багования.
+
+СХЕМА ПРОЕКТА ПО ФАЙЛАМ
+=======================
+Весь код модуля находится в src/module и в ./build-скрипте является модулем
+module. Заголовочные файлы:
+
+src/module/probes.h - всё, что связано с kprobes
+src/module/mentor.h - struct mentor_stuff и тому подобное
+src/module/splay.h  - splay-деревья
+src/module/proc.h   - реализация поведения файлов в /proc/sandboxer
+src/module/slot.h   - struct sandbox_slot и всё к нему относящееся
+
+Код по исходникам:
+src/module/core.c   - init / shutdown и обработчики системных вызовов
+src/module/probes.c - kprobes
+src/module/mentor.c - всё, относящееся к struct mentor_stuff
+src/module/splay.c  - splay-деревья
+src/module/proc.c   - поведение файлов в /proc/sandboxer
+src/module/slot.c   - всё, относящееся к struct sandbox_slot
+
+Подробнее об этом:
+
+src/module/probes.h
+===================
+Содержит функции, связанные с kprobes:
+
+int sandboxer_init_probes(void);
+void sandboxer_shutdown_proc(void);
+
+Первая функция подготавливает всё нужное для контроля kprobe, но не
+регистрирует ни одной. Возвращает errno. Вторая функция удаляет все 
+зарегестрированные модулем kprobe'ы.
+
+int sb_register_kprobe(struct kprobe* kp);
+int sb_register_jprobe(struct jprobe* jp);
+int sb_register_kretprobe(struct kretprobe* krp);
+
+Эти функции регистрируют probe'ы указанного вида, чтобы позднее в shutdown их
+корректно убрать. Возвращают errno.
+
+На текущий момент не существует способа убирать kprobe'ы в процессе
+исполнения. Как и необходимости это делать.
+
+src/module/splay.h
+==================
+splay-деревья. Реализованы они максимально просто, что в теории должно
+сокращать возмодность багов до минимума.
+_ВАЖНО_: по умолчанию splay-дерево не защищено поточно.
+
+struct splay_tree_node {
+    struct splay_tree_node *L, *R, *par;    
+};
+
+Для использования структуры следует использовать похожее на используемое в
+list'ах в Linux решение:
+
+struct foo {
+    int a;
+    struct splay_tree_node node;
+};
+
+Для получения элемента по node: 
+
+struct splay_tree_node n;
+struct foo *f = container_of(n, struct foo, node);
+
+Все операции на дереве выражаются через следующу операцию, работающую в худшем
+случае долго, однако имеющую амортизированную оценку O(log n) на действие, где
+n - количество элементов в дереве. Эта операция преобразует дерево так, что v
+становится его корнем.
+
+struct splay_tree_node *splay(struct splay_tree_node *v);
+
+Все остальные функции предлагается реализовывать для каждой задачи отдельно.
+Так, функцию find можно писать так же, как и в любом бинарном дереве:
+
+struct splay_tree_node *find(struct splay_tree_node *root, int val) {
+    struct foo *f;
+
+    if (!root)
+        return NULL;
+    f = container_of(root, struct foo, node);
+    if (f->a == val)
+        return root;
+    elif (val < f->a)
+        return find(root->L, val);
+    else
+        return find(root->R, val);
+}
+
+Стоит заметить, что для корректной работы амортизированной оценки желательно
+после каждой операции find делать splay найденого элемента. Возможны и другие 
+реализации, к примеру, нерекурсивные. Подобная гибкость может показаться 
+относительно бессмысленной, так как при каждом использовании splay-деревьев 
+приходится переписывать часть кода, однако она же даёт возможность написания 
+своих компараторов, что может быть использовано очень гибко; к примеру, для 
+написания деревьев по неявному ключу. Кроме того, использование именно
+splay-деревьев позволяет максимально сократить переписываемый код и сократить
+количество багов за счёт простоты. Ещё несколько операций для struct foo:
+
+struct splay_tree_node *merge(struct splay_tree_node *u, 
+        struct splay_tree_node *v) {
+    if (!u)
+        return v;
+    if (!v)
+        return u;
+    while (u->R)
+        u = u->R;
+    u = splay(u);
+    u->R = v;
+    v->par = u;
+}
+
+[не тестировано!]
+struct splay_tree_node *lower_bound(struct splay_tree_node *root, int val) {
+    struct foo *f, *g;
+    struct splay_tree_node *ret;
+
+    if (!root)
+        return NULL;
+    f = container_of(root, struct foo, node);
+    if (f->a == val)
+        return root;
+    if (val < f->a) {
+        ret = lower_bound(root->L, val);
+        if (!ret)
+            return root;
+        g = container_of(ret, struct foo, node);
+        if (f->a < g->a)
+            return root;
+        else
+            return ret;
+    } else {
+        return lower_bound(root->R, val);
+    }
+}
+
+[не тестировано!]
+void split(struct splay_tree_node *root, int val,
+        struct splay_tree_node **lt, struct splay_tree_node **rt) {
+    struct splay_tree_node *v;
+
+    v = lower_bound(root, val);
+    if (!v) {
+        *lt = root;
+        *rt = NULL;
+        return;
+    }
+    root = splay(v);
+    *lt = root->L;
+    *rt = root;
+    root->L = NULL;
+    if (*lt)
+        (*lt)->par = NULL;
+}
+
+[не тестировано!]
+struct splay_tree_node *add(struct splay_tree_node *root, 
+        struct splay_tree_node *v) {
+    struct foo *f;
+
+    f = container_of(v, struct foo, node);
+    split(root, f->val, &(v->L), &(v->R));
+    if (v->L)
+        v->L->par = v;
+    if (v->R)
+        v->R->par = v;
+    return v;
+}
+
+struct splay_tree_node *remove(struct splay_tree_node *root, 
+        struct splay_tree_node *v) {
+    root = splay(v);
+    root = merge(root->L, root->R);
+    return root;
+}
+
+src/module/mentor.h
+===================
+всё, что связано с struct mentor_stuff
+
+struct mentor_stuff {
+    pid_t pid;
+    struct llist_head awaited_messages;
+    /* TODO: добавить в описание lock/semaphore */
+    struct splay_tree_node node;
+};
+
+Все активные mentor_stuff хранятся в splay-дереве, упорядоченном по pid.
+[TODO: про lock/semaphore]
+
+enum mentor_stuff_request {
+    MENTOR_GET,
+    MENTOR_GET_OR_CREATE,
+    MENTOR_CREATE,
+    MENTOR_DESTROY,
+    MENTOR_SOFT_DESTROY,
+};
+
+struct mentor_stuff *manage_mentor_suff(pid_t pid, 
+        enum mentor_stuff_request mode);
+
+Пожалуй, здесь в комментариях нуждается только MENTOR_SOFT_DESTROY. В отличие
+от MENTOR_DESTROY, он просто игнорирует запрос, если mentor_stuff в дереве не
+найден. В MENTOR_DESTROY же стоит BUG_ON.
+
+int init_mentor_stuff(void);
+void shutdown_mentor_stuff(void);
+
+Комментарии излишни.
+
+src/module/proc.h
+=================
+Всё, что связано с /proc.
+
+int init_sandboxer_proc(void);
+void shutdown_sandboxer_proc(void);
+
+Первая функция создаёт директорию /proc/sandboxer/ и в ней файлы
+/proc/sandboxer/sandbox-me и /proc/sandboxer/notifier. Вторая функция удаляет
+директорию /proc/sandboxer/ и всё, что в ней.
+
+void sb_add_slot_entry(char *name, (void *cb)(struct seq_file *, u8));
+
+Должно быть вызвано после init_sandboxer_proc, но до окончания инициализации
+модуля. После вызова в каждой из директорий /proc/sandboxer/[slot_id]/ будет
+создаваться файл с именем name, при этом в момент чтения будет вызвана функция
+cb. Пример функции cb:
+
+void proc_slotid_maxmem_cb(struct seq_file *s, u8 slot_id) {
+    seq_printf(s, "%lu", slots[slot_id].max_mem_used);
+}
+
+Как-то так.
+
+void create_slotid_dir(struct sandbox_slot *s);
+void destroy_slotid_dir(struct sandbox_slot *s);
+
+Добавляют и удаляют слот при его открытии и закрытии.
+
+src/module/slot.h
+=================
+всё, что связано с struct sandbox_slot.
+
+struct sandbox_slot {
+    struct task_struct *mentor;
+
+    size_t num_alive;
+    size_t ref_cnt;
+
+    size_t mem_used;
+    size_t max_mem_used;
+    size_t mem_limit;
+
+    size_t time_used;
+    size_t time_limit;
+
+    /* TODO: lock */
+
+    struct proc_dir_entry slotid_dir;
+};
+
+[TODO: описания всех полей структуры]
+
+int init_sandbox_slots(void);
+void shutdown_sandbox_slots(void);
+
+Комментарии снова излишни.
+
+slot_id_type get_slot_of(struct task_struct *);
+struct sandbox_slot *get_slot_by_id(slot_id_type);
+slot_id_type create_new_slot(struct task_struct *mentor);
+void attach_task_to_slot(slot_id_type);
+void detach_task_from_slot(void);
+void increase_slot_refcnt(slot_id_type);
+void decrease_slot_refcnt(slot_id_type);
+
+[TODO: описания каждой функции].
+
+На текущий момент единственный тип сообщений в notifier - открытие нового
+слота. Для этого используется структура:
+
+struct slot_id_info {
+    slot_id_type slot_id;
+    struct llist_node node;
+};
+
+[TODO: другие типы сообщений]
