@@ -235,7 +235,7 @@ enum mentor_stuff_request {
     MENTOR_GET_OR_CREATE,
     MENTOR_CREATE,
     MENTOR_DESTROY,
-    MENTOR_SOFT_DESTROY,
+    MENTOR_SOFT_DESTROY
 };
 
 struct mentor_stuff *manage_mentor_suff(pid_t pid, 
