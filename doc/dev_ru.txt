@@ -6,6 +6,12 @@ sandboxer - разработка, схема и TODO
 допиливания. Важно предусмотреть все факапы, связанные с многопоточностью и
 исключить все возможности для багования.
 
+Для обеспечения безбажности предлагается тестировать код после _каждого_ коммита,
+используя стресс-тестирование.
+Коммиты, ломающие что-нибудь, недопускаются, даже если это исправляется уже в следующем
+коммите.
+
+
 СХЕМА ПРОЕКТА ПО ФАЙЛАМ
 =======================
 Весь код модуля находится в src/module и в ./build-скрипте является модулем
@@ -16,6 +22,7 @@ src/module/mentor.h - struct mentor_stuff и тому подобное
 src/module/splay.h  - splay-деревья
 src/module/proc.h   - реализация поведения файлов в /proc/sandboxer
 src/module/slot.h   - struct sandbox_slot и всё к нему относящееся
+src/module/init.h   - Утилита для написания кода, посвящённого иниициализации и наоборот.
 
 Код по исходникам:
 src/module/core.c   - init / shutdown и обработчики системных вызовов
@@ -24,26 +31,53 @@ src/module/mentor.c - всё, относящееся к struct mentor_stuff
 src/module/splay.c  - splay-деревья
 src/module/proc.c   - поведение файлов в /proc/sandboxer
 src/module/slot.c   - всё, относящееся к struct sandbox_slot
+src/module/init.c   - реализация init.h
 
 Подробнее об этом:
+
+src/module/init.h, src/module/init.c
+====================================
+Содержит полезные функции, упрощающие написание инициализации и
+деинициализации.
+
+Прототипы соответсвующих функций:
+
+int initlib_init(void); /* Инициализирует систему инициализации, возвращает errno */
+
+// init_func(1, data) - выполнить инициализацию.
+// init_func(0, data) - выполнить деинициализацию.
+// init_func возвращает errno, второй вызов должен возвращать 0.
+//
+// initlib_push выполняет инициализацию (первый вызов). Если он облажается, то
+// эта же функция отменяет все накопленные инициализации и возвращает errno из
+// вызова init_func(1, data).
+//
+// Можно использовать одну и ту же функцию инициализации с разной data, что
+// должно позволить сократить количество похожего кода.
+int initlib_push(int (*init_func)(int is_init, void* data), void* data);
+
+// То же самое, но ещё умеет печатать сообщение если инициализация провалится.
+int initlib_push(int (*init_func)(int is_init, void* data), void* data, char* errmsg);
+
+// Отменяет все иниициализации.
+void initlib_pop_all(void)
+
 
 src/module/probes.h
 ===================
 Содержит функции, связанные с kprobes:
 
 int sandboxer_init_probes(void);
-void sandboxer_shutdown_proc(void);
 
-Первая функция подготавливает всё нужное для контроля kprobe, но не
-регистрирует ни одной. Возвращает errno. Вторая функция удаляет все 
-зарегестрированные модулем kprobe'ы.
+Первая функция регистрирует все нужные пробы через initlib их потом было просто
+убрать.
+Возвращает errno.
 
-int sb_register_kprobe(struct kprobe* kp);
-int sb_register_jprobe(struct jprobe* jp);
-int sb_register_kretprobe(struct kretprobe* krp);
+int init_or_shutdown_kprobe(int is_init, void* kp); // *kp - struct kprobe
+int init_or_shutdown_jprobe(int is_init, void* jp); // *jp - struct jprobe
+int init_or_shutdown_kretprobe(int is_init, void* krp); // *krp - struct kretprobe
 
-Эти функции регистрируют probe'ы указанного вида, чтобы позднее в shutdown их
-корректно убрать. Возвращают errno.
+Вспомогательные функции для предудыщего пункта. Используются совместно с initlib.
 
 На текущий момент не существует способа убирать kprobe'ы в процессе
 исполнения. Как и необходимости это делать.
@@ -269,20 +303,18 @@ struct sandbox_slot {
 
 [TODO: описания всех полей структуры]
 
-int init_sandbox_slots(void);
-void shutdown_sandbox_slots(void);
+int init_or_shutdown_slots(void);
+
+int init_sandbox_slots(void); // использует initlib и пред. функцию.
 
 Комментарии снова излишни.
 
-slot_id_type get_slot_of(struct task_struct *);
-struct sandbox_slot *get_slot_by_id(slot_id_type);
-slot_id_type create_new_slot(struct task_struct *mentor);
-void attach_task_to_slot(slot_id_type);
-void detach_task_from_slot(void);
-void increase_slot_refcnt(slot_id_type);
-void decrease_slot_refcnt(slot_id_type);
+struct sandbox_slot* get_slot_of(struct task_struct *);
+struct sandbox_slot* create_new_slot(struct task_struct *mentor);
 
-[TODO: описания каждой функции].
+void release_slot(struct sandbox_slot*);
+
+Видимо как-то так.
 
 На текущий момент единственный тип сообщений в notifier - открытие нового
 слота. Для этого используется структура:
@@ -296,11 +328,6 @@ struct slot_id_info {
 
 Обсуждение
 ==========
-
-Для обеспечения безбажности предлагаю тестировать (стрессить) код после _каждого_ коммита.
-Тогда баги можно будет искать бинпоиском по времени.
-
-pl: ОК.
 
 Схема проекта по файлам:
  В целом достаточно логично. Но мне очень не нравится громадный массив slot_of из прошлой реализации.
@@ -322,40 +349,9 @@ pl: ОК.
  ck: здесь надо ещё подумать...
  Хешсет наверное не самое плохое, что можно сделать.
 
- Ещё мне очень не нравится наш прошлый код, посвящённый инициализации. Немного лапша.
- Предлагаю сделать какую-нибудь обобщённую систему инициализации.
- Например как-то так:
-
- // returns errno, [handler]
- int init_or_shutdown_xxx(int is_init);
-
- pl: а зачем init_or_shutdown? я в том коде так и не понял
-
- ck: Таким образом у тебя код, который инициализирует, и код, который наоборот, оказываются прям друг под другом.
- Удобно проверять, что они друг другу соответствуют.
-
- pl: гм
-
- ck: .... так что делаем?
-
- pl: ну пусть будет
-
- // Если инициализация облажается, то возвращает errno из этой инициализации,
- // а также отменяет все накопленные инициализации.
- int push_init_func(int (*init_func)(int is_init));
-
- void pop_all_inits(void)
- Ещё хорошо бы как-то форвардить аргументы (т.е. использовать общий [handler]
- с разными данными), видимо через void*.
-
- pl: а вот это здраво. в core?
-
- ck: Можно в core, или в новый подмодуль init.
-
-src/module/probes.h:
- Очень зависит от предыдущего пункта про инициализацию.
- Если написать его хорошо, то здесь будет совсем мало кода.
-
+ ck: Я наверное за хэшсет.
+ Или за какой-нибудь грязный хак, типа тех, что обсуждались (с правильными указателями).
+ 
 src/module/splay.h
  OK. Правда функцию find (и возможно некоторые другие) я бы переименовал (во избежание коллизий).
 
@@ -385,13 +381,7 @@ src/module/mentor.h
  В целом конструкция сообщений удобная и не хочется от неё отказывать, но надо подлатать.
 
 src/module/slot.h
- Предлагаю сделать slot_id_type = struct sandbox_slot*
-
- Также, пожалуй, осмысленно убрать половину существующих функций и
- делать всё ручками (не забывая про синхронизацию!)
-
  Описания предлагаемых сообщений были в doc/module_api_draft на kprobes.
  
  pl: я помню. кстати, его надо сюда добавить
 
-Пока не комментирую конкретные прототипы функций, давай сначала дообсудим общие вопросы реализации.
