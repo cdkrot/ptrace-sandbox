@@ -17,3 +17,8 @@ res/aplusb.out
 src/*~
 *.swp
 src/*.swp
+
+# < kernel building system sucks >
+src/module/*
+!src/module/Makefile
+!src/module/core.c

@@ -2,7 +2,8 @@
     "clean": {
         "depend": ["---clean"],
         "build": [
-            "rm -rf bin obj src/ptrace-gen"
+            "rm -rf bin obj src/ptrace-gen",
+            "./src/module/Makefile clean"
         ],
         "description": "Cleans build results"
     },
@@ -45,5 +46,14 @@
         ],
         "description": "[ptrace sandbox] main stuff",
         "build_if": "! ./src/ptrace-main/make -q"
+    },
+    "module" : {
+        "depend": [],
+        "build": [
+            "mkdir -p bin/module",
+            "./src/module/Makefile",
+            "cp ./src/module/sandboxer.ko ./bin/module"
+        ],
+        "description": "build sandboxer.ko kernel module"
     }
 }
