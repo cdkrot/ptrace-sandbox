@@ -17,21 +17,23 @@ sandboxer - разработка, схема и TODO
 Весь код модуля находится в src/module и в ./build-скрипте является модулем
 module. Заголовочные файлы:
 
-src/module/probes.h - всё, что связано с kprobes
-src/module/mentor.h - struct mentor_stuff и тому подобное
-src/module/splay.h  - splay-деревья
-src/module/proc.h   - реализация поведения файлов в /proc/sandboxer
-src/module/slot.h   - struct sandbox_slot и всё к нему относящееся
-src/module/init.h   - Утилита для написания кода, посвящённого иниициализации и наоборот.
+src/module/probes.h  - всё, что связано с kprobes
+src/module/mentor.h  - struct mentor_stuff и тому подобное
+src/module/splay.h   - splay-деревья
+src/module/hashmap.h - hashmap
+src/module/proc.h    - реализация поведения файлов в /proc/sandboxer
+src/module/slot.h    - struct sandbox_slot и всё к нему относящееся
+src/module/init.h    - Утилита для написания кода, посвящённого иниициализации и наоборот.
 
 Код по исходникам:
-src/module/core.c   - init / shutdown
-src/module/probes.c - kprobes и обработчики системных вызовов
-src/module/mentor.c - всё, относящееся к struct mentor_stuff
-src/module/splay.c  - splay-деревья
-src/module/proc.c   - поведение файлов в /proc/sandboxer
-src/module/slot.c   - всё, относящееся к struct sandbox_slot
-src/module/init.c   - реализация init.h
+src/module/core.c    - init / shutdown
+src/module/probes.c  - kprobes и обработчики системных вызовов
+src/module/mentor.c  - всё, относящееся к struct mentor_stuff
+src/module/splay.c   - splay-деревья
+src/module/hashmap.c - реализация hashmap
+src/module/proc.c    - поведение файлов в /proc/sandboxer
+src/module/slot.c    - всё, относящееся к struct sandbox_slot
+src/module/init.c    - реализация init.h
 
 Подробнее об этом:
 
@@ -62,6 +64,7 @@ int initlib_push(int (*init_func)(int is_init, void* data), void* data, char* er
 // Отменяет все иниициализации.
 void initlib_pop_all(void)
 
+Вопросы синхронизации: всё выполняется в один поток во время инициализации или наоборот.
 
 src/module/probes.h
 ===================
@@ -82,11 +85,17 @@ int init_or_shutdown_kretprobe(int is_init, void* krp); // *krp - struct kretpro
 На текущий момент не существует способа убирать kprobe'ы в процессе
 исполнения. Как и необходимости это делать.
 
+Вопросы синхронизации: всё выполняется в один поток в процессе инициализации или наоборот.
+
 src/module/splay.h
 ==================
+{INLINE DISCUSSION} здесь и много где далее не описано разделение .h/.c
+
 splay-деревья. Реализованы они максимально просто, что в теории должно
-сокращать возмодность багов до минимума.
-_ВАЖНО_: по умолчанию splay-дерево не защищено поточно.
+сокращать возможность багов до минимума.
+
+Вопросы синхронизации: требует внешней синхронизации, должно выполняться не более
+одного запроса одновременно. Все операции считаются как write (меняющими данные).
 
 struct splay_tree_node {
     struct splay_tree_node *L, *R, *par;    
@@ -218,20 +227,38 @@ struct splay_tree_node *remove(struct splay_tree_node *root,
 
 src/module/mentor.h
 ===================
+Вопросы синхронизации: все данные, имеющие отношение к сплей защищены персональным локом
+на данный сплей.
+Запросы на создание или удаление mentor_stuff _только_ от этой задачи.
+Изменения данных в mentor_stuff защищаются локом в mentor_stuff.
+
 всё, что связано с struct mentor_stuff
 
 struct mentor_stuff {
     pid_t pid;
     wait_queue_t msg_wq;
+
     /* TODO: добавить структуру для сообщений */
     /* TODO: добавить в описание lock/semaphore */
     struct splay_tree_node node;
 };
 
+
+{INLINE DISCUSSION} Мне кажется, что логично так:
+(Потому что semaphore более простая структура синхронизации чем WQ)
+struct mentor_stuff {
+    pid_t pid;
+    struct splay_tree_node node;
+    struct spinlock_t lock; /* общая синхронизация данных в структуре */
+    struct notification queue[CNT];
+    size_t queue_begin;
+    size_t queue_end;
+    struct semaphore_t sem; /* Обеспечивает ожидание */
+};
+
 Все активные mentor_stuff хранятся в M splay-деревьях, упорядочеенных по pid,
 а именно в k-том splay-дереве хранится информация про всех менторов, у которых
 pid % M == k.
-[TODO: про lock/semaphore]
 
 enum mentor_stuff_request {
     MENTOR_GET,
@@ -259,7 +286,28 @@ void shutdown_mentor_stuff(void);
 msg_wq. Когда до него дойдёт очередь, он обновит текущее сообщение в struct
 mentor_stuff и продолжит выполнение.
 
-TODO: описание структуры сообщений.
+{INLINE DISCUSSION}
+Собственно предлагаю из этого подмодуля экспортировать только API для отправки/получения сообщений.
+enum nofication_type {
+    NOTIFICATION_ABA,
+    NOTIFICATION_CABA
+};
+struct notification {
+    notification_type type;
+    size_t slot_id;
+    size_t extra_field1;
+    size_t extra_field2;
+};
+void send_notification(struct sandbox_slot* slot, const struct notification*);
+int  recv_notification(struct task_struct* mentor, struct notification*); // через return показываем есть ли нотификация.
+
+{TODO:} Нужно предусмотреть ситуацию, когда mentor может сдохнуть в процессе обработки какого-то
+события в его слоте. Нужно где-то попросить ядро не убивать mentor в данный момент времени.
+Вопрос как.
+
+src/module/hashmap.{c,h}
+========================
+{TODO}
 
 src/module/proc.h
 =================
@@ -292,27 +340,37 @@ void destroy_slotid_dir(struct sandbox_slot *s);
 
 src/module/slot.h
 =================
+Вопросы синхронизации.
+Запросы на создание/удаление защищаются (видимо) как-то отдельно.
+Все* запросы к sandbox_slot защищаются локом внутри него.
+Создание слота происходит в один поток и потому безопасно (но нужно предусмотреть защиту поля Mentor в данном случае {TODO}).
+Удаление слота происходит только когда num_alive = ref_cnt = 0, следовательно единственный
+поток имеющий отношение к нему - текущий, потому удаление безопасно. Но при этом требуется синхронизация по полю mentor.
+
+* КРОМЕ ЗАПРОСОВ К ПОЛЮ MENTOR, оно защищается локами из подмодуля mentor.
+
 всё, что связано с struct sandbox_slot.
 
 struct sandbox_slot {
-    struct task_struct *mentor;
+    struct task_struct *mentor; // pointer to mentor, or null, if it died
 
-    size_t num_alive;
+    size_t num_alive; // num of alive pids inside.
     size_t ref_cnt;
 
-    size_t mem_used;
+    size_t slot_id; // only for purpose of userspace IO.
+
+    size_t mem_used; // self explaining
     size_t max_mem_used;
     size_t mem_limit;
 
-    size_t time_used;
+    size_t time_used; // self explaining
     size_t time_limit;
 
-    /* TODO: lock */
+    struct spinlock_t lock; /* protects all data inside */
 
-    struct proc_dir_entry slotid_dir;
+    struct proc_dir_entry slotid_dir; /* handle to /proc entry (via src/module/proc.{c,h})
 };
 
-[TODO: описания всех полей структуры]
 
 bool is_sandboxed(pid_t pid);
 
@@ -325,6 +383,10 @@ hashset фиксированного размера. sandboxer поддержи�
 минимальному простому числу, большему учетвенённого числа поддерживаемых
 процессов.
 
+{INLINE DISCUSSION}
+struct slot* get_sandbox_slot(struct task_struct*); /* or null */
+Чтобы не делать два отдельных вызова is_sandboxed и get_slot().
+
 int init_or_shutdown_slots(void);
 
 int init_sandbox_slots(void); // использует initlib и пред. функцию.
@@ -332,7 +394,7 @@ int init_sandbox_slots(void); // использует initlib и пред. фу�
 Комментарии снова излишни.
 
 struct sandbox_slot* get_slot_of(struct task_struct *);
-struct sandbox_slot* create_new_slot(struct task_struct *mentor);
+struct sandbox_slot* create_new_slot(void); // pid = current->pid, mentor = current->parent, {TODO} защититься от самоуничтожения mentor в момент создания слота.
 
 void release_slot(struct sandbox_slot*);
 
