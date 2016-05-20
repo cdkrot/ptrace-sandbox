@@ -8,7 +8,7 @@
         "description": "Cleans build results"
     },
     "all": {
-        "depend": ["demos", "ptrace-gen", "ptrace-main", "ptrace-utils"],
+        "depend": ["demos", "ptrace-gen", "ptrace-main", "ptrace-utils", "module"],
         "build": [],
         "description": "Build everything"
     },
