@@ -283,8 +283,7 @@ enum nofication_type {
     NOTIFICATION_CABA
 };
 
-[Сейчас пока поддерживается только нотификация NOTIFICATION_SLOT_DIED, потом
-их станет существенно больше]
+Подробнее про типы нотификаций написано в документации по api.
 
 struct notification {
     notification_type type;
@@ -315,6 +314,7 @@ src/module/hashmap.h
 struct hashmap_entry {
     void *key;
     void *val;
+    bool removed; // internal; you really have to do nothing with that stuff
 };
 
 struct hashmap {
@@ -325,7 +325,7 @@ struct hashmap {
     size_t max_size;    // maximum number of elements that could be stored in
                         // the hashmap
     
-    spinlock_t lock;    // global lock on a hashmap
+    rwlock_t lock;      // global lock on a hashmap
 
     (unsigned long *hash)(struct hashmap *, void *); // pointer to the hash 
                                                      // function
@@ -358,11 +358,6 @@ int init_hashmap(struct hashmap *map, size_t elems);
 map->max_size. Возвращает 0, если инициализация успешна, и errno в противном
 случае (обычно -ENOMEM).
 
-{INLINE DISCUSSION}
-Стоит ли переделывать эту функцию под initlib?
-Блокирует ли она spinlock? ( = стоит ли внутри неё вызывать kmalloc с
-GFP_ATOMIC?)
-
 int hashmap_set(struct hashmap *map, struct hashmap_entry entry);
 
 Возвращает 0 в случае успеха и -EFAULT если в результате выполнения операции
@@ -372,6 +367,13 @@ void *hashmap_get(struct hashmap *map, void *key);
 
 Возвращает NULL, если элемента нет.
 
+void hashmap_erase(struct hashmap *map, void *key);
+
+В комментариях не нуждается. 
+
+void free_hashmap(struct hashmap *map);
+
+Освобождает память, занятую hashmap'ом (массивом hmp, но не структрой!).
 
 src/module/proc.h
 =================
@@ -473,19 +475,6 @@ void release_slot(struct sandbox_slot*);
 ==========
 
 Итого, что нам осталось:
-- помёржить обсуждения в модуле
 - подумать, нужен ли нам файлик про coding style
 - ещё раз подумать, нужен ли нам файлик про coding style
-- подумать, где spinlock'и лучше заменить на rw_lock
 после этого можно начинать писать код.
-
-Предлагаю также ввести отдельный файл doc/tests_ru.txt для описания тестов.
-Тесты к каждому файлу пишет как тот, кто его кодил, так и второй разработчик.
-В основном, тесты работают по механизму стресс-тестирования в юзерспейсе, если
-это возможно.
-
-ck. Ну я в основном предлагаю использовать "monkey test". Тупо запускать в
-юзерспейсе много различных программ, которые делают большую нагрузку на модуль.
-Где-нибудь на 40-60 минут. Или даже больше.
-
-ck: А также тесты к структурам данным. Остальное как тестить не очень понятно.
