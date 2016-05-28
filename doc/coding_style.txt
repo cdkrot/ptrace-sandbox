@@ -81,6 +81,11 @@ Don't indent anything starting with '#'.
 #endif
 
 
+Lines
+=====
+Lines should be shrinked to at maximum 110 symbols per line.
+
+
 Naming
 ======
 Feel free and listen to Linus (/usr/src/linux/Documentation/CodingStyle,
