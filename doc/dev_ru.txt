@@ -303,9 +303,73 @@ void send_notification(struct task_struct* mentor, const struct notification*);
 void recv_notification(struct notification*); // Ждать пока не придёт.
 
 
-src/module/hashmap.{c,h}
+src/module/hashmap.h
 ========================
-{TODO}
+Поскольку hashmap - гораздо более конкретная структура, чем splay-дерево,
+здесь будет использовано традиционное для структур данных решение - просто
+обыкновенная структура.
+
+Сама структура данных реализована с открытой адресацией и двойным
+хешированием. Потому что мы можем.
+
+struct hashmap_entry {
+    void *key;
+    void *val;
+};
+
+struct hashmap {
+    hashmap_entry *hmp; // an array where all data is stored
+
+    size_t real_size;   // real size of hmp
+    size_t cur_size;    // current number of elements in hashmap
+    size_t max_size;    // maximum number of elements that could be stored in
+                        // the hashmap
+    
+    spinlock_t lock;    // global lock on a hashmap
+
+    (unsigned long *hash)(struct hashmap *, void *); // pointer to the hash 
+                                                     // function
+    (bool *equal)(void *, void *); // pointer to function that checks two keys 
+                                   // on equality
+};
+
+Сама структура хранит ассоциативный массив, выдающий по указателю на ключ
+указатель на значение. При этом подразумевается, что функция hash
+разыменовывает указатель на ключ, переданный ей как аргумент, и работает уже с
+разыменованным значением. Функция hash может возвращать любое значение, но при
+её написании стоит учитывать, что оно будет взято по модулю real_size. Удобно
+было бы использовать real_size как модуль при подсчёте хеша (real_size -
+простое число, см. ниже). Для этого указатель на struct hashmap и передаётся в
+хеш-функцию.
+
+Функция equal вызывается при предположении о коллизиях, которые в связи с
+экономией памяти неизбежны. При хорошей хеш-функции она вызвается редко, но её
+время работы гораздо критичнее, чем время работы хеш-функции, так как она
+вызывается при каждом случае коллизии, котрых при любом обращении к структуре
+может быть несколько.
+
+Разумеееется, подразумевается, что все ключи и значения
+
+int init_hashmap(struct hashmap *map, size_t elems);
+
+Эта функция инициализирует hashmap с map->max_size = elems. Реальный размер
+(map->real_size) равен минимальному простому числу, не меньшему чем 4 *
+map->max_size. Возвращает 0, если инициализация успешна, и errno в противном
+случае (обычно -ENOMEM).
+
+{INLINE DISCUSSION}
+Стоит ли переделывать эту функцию под initlib?
+Блокирует ли она spinlock? ( = стоит ли внутри неё вызывать kmalloc с
+GFP_ATOMIC?)
+
+int hashmap_set(struct hashmap *map, struct hashmap_entry entry);
+
+Возвращает 0 в случае успеха и -EFAULT если в результате выполнения операции
+hashmap переполнится. Естественно, в последнем случае ничего не происходит.
+
+void *hashmap_get(struct hashmap *map, void *key);
+
+Возвращает NULL, если элемента нет.
 
 
 src/module/proc.h
@@ -408,7 +472,9 @@ void release_slot(struct sandbox_slot*);
 ==========
 
 Итого, что нам осталось:
-- дописать api для hashmap
+- помёржить обсуждения в модуле
+- подумать, нужен ли нам файлик про coding style
+- ещё раз подумать, нужен ли нам файлик про coding style
 после этого можно начинать писать код.
 
 Предлагаю также ввести отдельный файл doc/tests_ru.txt для описания тестов.
