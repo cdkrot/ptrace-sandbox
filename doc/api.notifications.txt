@@ -1,0 +1,34 @@
+This document is to describe the format of notifications.
+If you don't what notification is, please look somewhere else.
+
+Each notification comes with following two required params:
+notification name (type), it is a string.
+slot id, which caused notification, it is some integer greater-or-equal to zero.
+
+Some notifications also have other params.
+
+Notification are sent using following format:
+"{TYPE} {SLOT ID} [some extra args] [some extra args]\n"
+
+List of currently provided notifications:
+=========================================
+(t is for type, d is for description, e is for "extra arg").
+
+t: SLOT_CREATE
+d: Slot was just created.
+
+t: SLOT_STOP.
+d: Slot finished it's execution.
+e: reason(string), one of following: OK, TL <time limit>, RTL <real time limit>, ML <mem limit>, SV <sec. violation>
+
+t: SLOT_TERM
+d: Slot was recycled.
+d: This notification is sent after "SLOT_STOP", you can request stats about slot from /proc
+d: only before you recieve this notification.
+
+t: SEC_VIOL
+d: Syscall resulted in security violation AND "enforcing-sec" mode is off.
+
+t: MEM_LIM
+d: Syscall resulted in -ENOMEM AND "enforcing-mem" mode is off.
+
