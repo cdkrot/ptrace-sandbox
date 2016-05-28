@@ -1,0 +1,98 @@
+This document is to describe the coding style that is to be used in the
+project.
+
+
+Indents
+=======
+As we all are used to, we are using four spaces instead of tubs. Just ignoring
+Linus.
+
+
+Braces
+======
+Brace style of all constructions is the same: we put the opening brace in the
+same line with the statement and closing state in the next line after end of
+body. All braces in "else" statement are put in the same line with the word
+"else". Here is an example:
+
+int foo(int a, int b) {
+    while (true) {
+        if (a)
+            return a;
+        if (b < -1) {
+            b++;
+            return b;
+        } else if (b < 1)
+            return b + 1;
+        else {
+            return b + 2;
+        }
+    }
+    return 0;
+}
+
+
+Switches
+========
+Switchcase marks are indented just as the switch statement is:
+
+int foo(int a) {
+    switch (a) {
+    case 1:
+        return 1;
+    case 2:
+        return 2;
+    default:
+        return a;
+    }
+}
+
+
+Pointers
+========
+The only way to set up a pointer is to place the wildcard after typename _and_
+one space, e.g.
+
+int *foo(void *data, (int *cb)(void *)) {
+    return cb(data);
+}
+
+
+Spaces
+======
+Place them everywhere. After all commas. Around all binary operators. Between
+if and '(', while and '(', for and '('.
+_BUT_ don't put it after a function call. You should write 'printf(', not
+'printf ('. And, for God's sake, don't put it right after '(' and right before
+')'. That looks awful.
+
+if (birch) {
+    printf("good birch");
+}
+
+
+Macros
+======
+Don't indent anything starting with '#'.
+
+#ifndef BIRCH
+#define BIRCH 1
+    printf("BIRTCH was not defined\n");
+#endif
+
+
+Naming
+======
+Feel free and listen to Linus (/usr/src/linux/Documentation/CodingStyle,
+starting with line 240 in 4.5.3).
+
+
+Commenting
+==========
+All imported stuff from every module should be described in documentation
+(doc/dev_LANG.txt).
+All frequently used stuff that is supposed to be used by other maintainers
+should be described in the comments at least.
+All unobvious parts of code should be commented. Or commented out. Or thrown
+out.
+All other code could be left as it is.
