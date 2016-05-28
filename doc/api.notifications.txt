@@ -3,7 +3,8 @@ If you don't what notification is, please look somewhere else.
 
 Each notification comes with following two required params:
 notification name (type), it is a string.
-slot id, which caused notification, it is some integer greater-or-equal to zero.
+slot id, which caused notification, it is some integer greater-or-equal to
+zero.
 
 Some notifications also have other params.
 
@@ -19,11 +20,13 @@ d: Slot was just created.
 
 t: SLOT_STOP.
 d: Slot finished it's execution.
-e: reason(string), one of following: OK, TL <time limit>, RTL <real time limit>, ML <mem limit>, SV <sec. violation>
+e: reason(string), one of following: OK, TL <time limit>, 
+   RTL <real time limit>, ML <mem limit>, SV <sec. violation>
 
 t: SLOT_TERM
 d: Slot was recycled.
-d: This notification is sent after "SLOT_STOP", you can request stats about slot from /proc
+d: This notification is sent after "SLOT_STOP", you can request stats about 
+   slot from /proc
 d: only before you recieve this notification.
 
 t: SEC_VIOL
