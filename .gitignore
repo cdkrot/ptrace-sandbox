@@ -22,3 +22,5 @@ src/*.swp
 src/module/*
 !src/module/Makefile
 !src/module/core.c
+!src/module/init.h
+!src/module/init.c

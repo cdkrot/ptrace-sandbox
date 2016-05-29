@@ -63,8 +63,8 @@ int initlib_init(void); /* Инициализирует систему иниц�
 int initlib_push(int (*init_func)(int is_init, void *data), void*data);
 
 // То же самое, но ещё умеет печатать сообщение если инициализация провалится.
-int initlib_push(int (*init_func)(int is_init, void* data), void *data, 
-                 char *errmsg);
+int initlib_push_errmsg(int (*init_func)(int is_init, void* data), void *data, 
+                        char *errmsg);
 
 // Отменяет все иниициализации.
 void initlib_pop_all(void)

@@ -1,0 +1,105 @@
+This document is just an example of initlib usage.
+
+
+Init functions example
+======================
+static int dummy_init_func(int init, void *_data) {
+    long data;
+
+    data = *((long*)_data);
+    if (init) {
+        printk(KERN_INFO "dummy_init_func: init %ld\n", data);
+        return 0;
+    } else {
+        printk(KERN_INFO "dummy_init_func: exit %ld\n", data);
+        return 0;
+    }
+}
+
+static int failing_init_func(int init, void *_data) {
+    if (init)
+        return -EFAULT;
+    return 0;
+}
+
+
+In module initializing
+======================
+long twos[11]; // That must be a _global_ array
+
+for (i = 0; i < 11; i++) {
+    twos[i] = 1 << i;
+    initlib_push(dummy_init_func, twos + i);
+}
+
+// Next three lines might be commented out. If not, then after failure of
+// failing_init_func initlib will pop all previous init functions so we can
+// exit right now without calling initlib_pop_all.
+
+if ((errno = initlib_push_errmsg(failing_init_func, NULL, 
+                                 KERN_ERR "sandboxer: as waited")))
+    return errno;
+
+
+In module exit
+==============
+initlib_pop_all(); // That's it.
+
+
+Dmesg on failure
+================
+[ 3873.265624] dummy_init_func: init 1
+[ 3873.265627] dummy_init_func: init 2
+[ 3873.265629] dummy_init_func: init 4
+[ 3873.265631] dummy_init_func: init 8
+[ 3873.265634] dummy_init_func: init 16
+[ 3873.265636] dummy_init_func: init 32
+[ 3873.265639] dummy_init_func: init 64
+[ 3873.265642] dummy_init_func: init 128
+[ 3873.265644] dummy_init_func: init 256
+[ 3873.265647] dummy_init_func: init 512
+[ 3873.265649] dummy_init_func: init 1024
+[ 3873.265652] sandboxer: as waited
+[ 3873.265655] sandboxer initlib: errno = -14
+[ 3873.265658] dummy_init_func: exit 1024
+[ 3873.265661] dummy_init_func: exit 512
+[ 3873.265664] dummy_init_func: exit 256
+[ 3873.265666] dummy_init_func: exit 128
+[ 3873.265669] dummy_init_func: exit 64
+[ 3873.265672] dummy_init_func: exit 32
+[ 3873.265674] dummy_init_func: exit 16
+[ 3873.265677] dummy_init_func: exit 8
+[ 3873.265679] dummy_init_func: exit 4
+[ 3873.265681] dummy_init_func: exit 2
+[ 3873.265684] dummy_init_func: exit 1
+
+Here insmod operation failed.
+
+
+Dmesg on success
+================
+[ 3962.242326] sandboxer: What makest thou?
+[ 3962.242332] dummy_init_func: init 1
+[ 3962.242335] dummy_init_func: init 2
+[ 3962.242337] dummy_init_func: init 4
+[ 3962.242340] dummy_init_func: init 8
+[ 3962.242342] dummy_init_func: init 16
+[ 3962.242345] dummy_init_func: init 32
+[ 3962.242348] dummy_init_func: init 64
+[ 3962.242350] dummy_init_func: init 128
+[ 3962.242353] dummy_init_func: init 256
+[ 3962.242355] dummy_init_func: init 512
+[ 3962.242358] dummy_init_func: init 1024
+[ 3966.491128] dummy_init_func: exit 1024
+[ 3966.491133] dummy_init_func: exit 512
+[ 3966.491135] dummy_init_func: exit 256
+[ 3966.491137] dummy_init_func: exit 128
+[ 3966.491139] dummy_init_func: exit 64
+[ 3966.491141] dummy_init_func: exit 32
+[ 3966.491143] dummy_init_func: exit 16
+[ 3966.491145] dummy_init_func: exit 8
+[ 3966.491147] dummy_init_func: exit 4
+[ 3966.491149] dummy_init_func: exit 2
+[ 3966.491151] dummy_init_func: exit 1
+
+Here insmod and rmmod were proceeded sequentualy.
