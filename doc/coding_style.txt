@@ -4,7 +4,7 @@ project.
 
 Indents
 =======
-As we all are used to, we are using four spaces instead of tubs. Just ignoring
+As we all are used to, we are using four spaces instead of tabs. Just ignoring
 Linus.
 
 
@@ -17,19 +17,20 @@ body. All braces in "else" statement are put in the same line with the word
 
 int foo(int a, int b) {
     while (true) {
-        if (a)
-            return a;
+        if (a)         // don't add braces when
+            return a;  // they are not needed.
         if (b < -1) {
-            b++;
+            b++;       // no choice.
             return b;
-        } else if (b < 1)
-            return b + 1;
-        else {
-            return b + 2;
+        } else if (b < 1) { // add braces here,
+            return b + 1;   // so this if
+        } else {            // and if above look
+            return b + 2;   // well together
         }
     }
     return 0;
 }
+
 
 
 Switches
@@ -77,13 +78,13 @@ Don't indent anything starting with '#'.
 
 #ifndef BIRCH
 #define BIRCH 1
-    printf("BIRTCH was not defined\n");
+    printf("BIRCH was not defined\n");
 #endif
 
 
 Lines
 =====
-Lines should be shrinked to at maximum 110 symbols per line.
+Lines should be not greater, than 110 characters per line.
 
 
 Naming
@@ -97,7 +98,7 @@ Commenting
 All imported stuff from every module should be described in documentation
 (doc/dev_LANG.txt).
 All frequently used stuff that is supposed to be used by other maintainers
-should be described in the comments at least.
+should be documented in the comments and/or files in "doc" folder.
 All unobvious parts of code should be commented. Or commented out. Or thrown
 out.
 All other code could be left as it is.

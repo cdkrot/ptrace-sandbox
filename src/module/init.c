@@ -19,70 +19,67 @@
 
 #include "init.h"
 
-struct forward_list_head {
-    struct forward_list_head *next;
-};
-
 struct initlib_entry {
     int (*initfunc)(int, void *);
     void *data;
-    struct forward_list_head node;
+    struct initlib_entry *prev;
 };
 
-static struct forward_list_head *pushed;
+static struct initlib_entry *pushed;
 
 int initlib_init(void) {
     pushed = NULL;
     return 0;
 }
 
-static int initlib_do_push(int (*init_func)(int, void *), void *data, bool print, const char *msg) {
+static int initlib_do_push(int (*init_func)(int, void *), void *data, const char *msg, bool unroll) {
     struct initlib_entry *entry;
     int errno = 0;
 
     entry = kmalloc(sizeof(struct initlib_entry), GFP_KERNEL);
     if (!entry) {
         errno = -ENOMEM;
-        goto out;
+        printk(KERN_INFO "sandboxer: failed to initialize due to lack of memory\n");
+        goto out_fail;
     }
 
     errno = init_func(1, data);
     if (errno != 0) {
-        if (print) {
+        if (msg) {
             printk(msg);
-            printk(KERN_INFO "sandboxer initlib: errno = %d\n", errno);
+            printk(KERN_INFO "sandboxer: initialization failed with errno = %d\n", errno);
         }
-        initlib_pop_all();
-        goto out_free_entry;
+        kfree(entry);
+        goto out_fail;
     }
 
     entry->initfunc = init_func;
     entry->data = data;
-    entry->node.next = pushed;
-    pushed = &entry->node;
-    goto out;
-
-out_free_entry:
-    kfree(entry);
-out:
+    entry->prev = pushed;
+    pushed = entry;
+    return 0;
+    
+out_fail:
+    if (unroll)
+        initlib_pop_all();
     return errno;
 }
 
 int initlib_push(int (*init_func)(int, void *), void *data) {
-    return initlib_do_push(init_func, data, false, NULL); 
+    return initlib_do_push(init_func, data, NULL, true);
 }
 
 int initlib_push_errmsg(int (*init_func)(int, void *), void *data, const char *errmsg) {
-    return initlib_do_push(init_func, data, true, errmsg);
+    return initlib_do_push(init_func, data, errmsg, true);
 }
 
 void initlib_pop_all(void) {
-    struct initlib_entry *entry;
+    struct initlib_entry *last;
 
     while (pushed) {
-        entry = container_of(pushed, struct initlib_entry, node);
-        entry->initfunc(0, entry->data);
-        pushed = entry->node.next;
-        kfree(entry);
+        last = pushed;
+        pushed->initfunc(0, pushed->data);
+        pushed = pushed->prev;
+        kfree(last);
     }
 }
