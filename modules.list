@@ -1,11 +1,17 @@
 {
     "clean": {
-        "depend": ["---clean"],
+        "depend": ["---clean", "module-clean"],
         "build": [
-            "rm -rf bin obj src/ptrace-gen",
-            "./src/module/Makefile clean"
+            "rm -rf bin obj src/ptrace-gen"
         ],
         "description": "Cleans build results"
+    },
+    "module-clean": {
+        "depend": [],
+        "build": [
+            "./src/module/Makefile clean"
+        ],
+        "description": "Cleans module building results"
     },
     "all": {
         "depend": ["demos", "ptrace-gen", "ptrace-main", "ptrace-utils", "module"],

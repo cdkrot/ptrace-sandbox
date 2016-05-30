@@ -24,3 +24,15 @@ src/module/*
 !src/module/core.c
 !src/module/init.h
 !src/module/init.c
+!src/module/slot.h
+!src/module/slot.c
+!src/module/proc.h
+!src/module/proc.c
+!src/module/splay.h
+!src/module/splay.c
+!src/module/probes.h
+!src/module/probes.c
+!src/module/mentor.h
+!src/module/mentor.c
+!src/module/hashmap.h
+!src/module/hashmap.c

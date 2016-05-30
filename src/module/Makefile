@@ -2,7 +2,7 @@
 
 ifneq ($(KERNELRELEASE),)
 obj-m := sandboxer.o
-sandboxer-y := core.o init.o
+sandboxer-y := core.o init.o probes.o
 else
 
 all: 

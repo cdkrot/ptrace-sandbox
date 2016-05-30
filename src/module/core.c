@@ -18,6 +18,7 @@
 #include <linux/kernel.h>
 
 #include "init.h"
+#include "probes.h"
 
 MODULE_LICENSE("GPL");
 
@@ -57,6 +58,10 @@ static int __init sandboxer_module_init(void) {
         initlib_push(dummy_init_func, twos + i);
     }
 
+    if ((errno = sandboxer_init_probes()) != 0) {
+        printk(KERN_ERR "sandboxer: Failed to initialized probes subsystem. Errno = %d\n", errno);
+        return errno;
+    }
     //if ((errno = initlib_push_errmsg(failing_init_func, NULL, KERN_ERR "sandboxer: as waited")))
         //return errno;
 
