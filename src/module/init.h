@@ -17,11 +17,21 @@
 #ifndef SANDBOXER_INIT_H_
 #define SANDBOXER_INIT_H_
 
-int initlib_init(void); /* Initializes the initializing system. To initialize module of module while
-                          initializing module. Returns errno. */
+/* Initializes the initialization system. To initialize module of module while initializing module.
+ * Returns errno.
+ */
+int initlib_init(void);
 
+/* Calls init_func(1, data) and adds init_func(0, data) to list of deinitialization functions. Also 
+ * failure of init_func also does all deinitializations. 
+ * Returns result of init_func or -ENOMEM in case of list entry structure allocation failure.
+ */
 int initlib_push(int (*init_func)(int, void *), void *data);
+
+/* Same as previous but prints errmesg in case of failure of init_func. */
 int initlib_push_errmsg(int (*init_func)(int, void *), void *data, const char *errmsg);
+
+/* Calling all deinitialization functions added by initlib_push and initlib_push_errmsg. */
 void initlib_pop_all(void);
 
 #endif //SANBOXER_INIT_H_
