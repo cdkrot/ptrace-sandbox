@@ -19,6 +19,7 @@
 
 #include "init.h"
 #include "probes.h"
+#include "tests/test-hashmap.h"
 
 MODULE_LICENSE("GPL");
 
@@ -64,6 +65,11 @@ static int __init sandboxer_module_init(void) {
     }
     //if ((errno = initlib_push_errmsg(failing_init_func, NULL, KERN_ERR "sandboxer: as waited")))
         //return errno;
+
+    if ((errno = initlib_push(test_hashmap, NULL)) != 0) {
+        printk(KERN_ERR "sandboxer: Tests: Hashmap tests failed\n");
+        return errno;
+    }
 
     return 0;
 }

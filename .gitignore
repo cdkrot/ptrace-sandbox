@@ -36,3 +36,8 @@ src/module/*
 !src/module/mentor.c
 !src/module/hashmap.h
 !src/module/hashmap.c
+
+!src/module/tests
+src/module/tests/*
+!src/module/tests/test-hashmap.c
+!src/module/tests/test-hashmap.h

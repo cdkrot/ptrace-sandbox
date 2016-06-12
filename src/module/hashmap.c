@@ -101,7 +101,7 @@ void* hashmap_erase(struct hashmap* hmp, const void* key) {
     size_t pos;
 
     BUG_ON(key == NULL);
-    read_lock_irqsave(&(hmp->lock), flags);
+    write_lock_irqsave(&(hmp->lock), flags);
 
     pos = hashmap_find_unlocked(hmp, key, 0);
     if (pos != SIZE_MAX) {
@@ -112,7 +112,7 @@ void* hashmap_erase(struct hashmap* hmp, const void* key) {
         hmp->used_size -= 1;
     }
 
-    read_unlock_irqrestore(&(hmp->lock), flags);
+    write_unlock_irqrestore(&(hmp->lock), flags);
     return res;
 }
 
@@ -127,7 +127,7 @@ int hashmap_set(struct hashmap* hmp, const void* key, void* value, void** oldval
         size_t pos;
 
         BUG_ON(key == NULL);
-        read_lock_irqsave(&(hmp->lock), flags);
+        write_lock_irqsave(&(hmp->lock), flags);
 
         if (oldval)
             *oldval = NULL;
@@ -146,7 +146,11 @@ int hashmap_set(struct hashmap* hmp, const void* key, void* value, void** oldval
         hmp->data[pos].key = key;
         hmp->data[pos].value = value;
 
-        read_unlock_irqrestore(&(hmp->lock), flags);
+        write_unlock_irqrestore(&(hmp->lock), flags);
         return 0;
     }
+}
+
+void hashmap_free(struct hashmap* hmp) {
+    kfree(hmp->data);
 }
