@@ -47,16 +47,17 @@ int test_hashmap(int initlib_mode, void* ignored) {
 
     printk(KERN_INFO "Sandboxer: testing hashmap");
     for (i = 0; i != 5; ++i) {
-#define HMPTEST_EXPECT(cond, errmsg)            \
-        if (!(cond)) {                          \
-            hashmap_free(&hmp);                 \
-            printk(KERN_INFO errmsg);           \
-            goto test_failed;                   \
+#define HMPTEST_EXPECT(cond, errmsg)                 \
+        if (!(cond)) {                               \
+            hashmap_free(&hmp);                      \
+            printk(KERN_INFO "sandboxer: " errmsg);  \
+            goto test_failed;                        \
         }
 
 #define TEST_KRANGE 4500
 #define TEST_VRANGE 200
 #define TEST_ITERS 2000
+
 
 #define CHECK_RANDOM_VAL()                                                       \
         do {                                                                     \
@@ -96,9 +97,9 @@ int test_hashmap(int initlib_mode, void* ignored) {
                 realvals[key] = newval;
             }
     }
-    printk(KERN_INFO "Hashmap tests succeeded");
+    printk(KERN_INFO "sandboxer: Hashmap tests succeeded");
     return 0;
 test_failed:
-    printk(KERN_INFO "Failed hashmap tests");
+    printk(KERN_INFO "sandboxer: Failed hashmap tests");
     return -1;
 }

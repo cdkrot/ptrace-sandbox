@@ -15,6 +15,7 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/kernel.h>
 
 #include "init.h"
@@ -23,51 +24,57 @@
 
 MODULE_LICENSE("GPL");
 
-static int dummy_init_func(int init, void *_data) {
-    long data;
+/* Insmod operation parameters: */
 
-    data = *((long*)_data);
-    if (init) {
-        printk(KERN_INFO "dummy_init_func: init %ld\n", data);
-        return 0;
-    } else {
-        printk(KERN_INFO "dummy_init_func: exit %ld\n", data);
-        return 0;
-    }
-}
+static int perform_hashmap_test = 0;
+module_param(perform_hashmap_test, int, 0000);
 
-static int failing_init_func(int init, void *_data) {
-    if (init)
+/* Code: */
+
+static int check_module_params(void) {
+    if (perform_hashmap_test < 0 || perform_hashmap_test > 1) {
+        printk(KERN_ERR "sandboxer: perform_hashmap_test is set to invalid value %d\n", perform_hashmap_test);
         return -EFAULT;
+    }
+
     return 0;
 }
 
-long twos[11];
+static int perform_tests(void) {
+    int errno;
+
+    if (perform_hashmap_test == 1) {
+        if ((errno = initlib_push(test_hashmap, NULL)) != 0) {
+            printk(KERN_ERR "sandboxer: Tests: Hashmap tests failed\n");
+            return errno;
+        }
+    }
+    
+    return 0;
+}
 
 static int __init sandboxer_module_init(void) {
-    int errno = 0, i;
+    int errno = 0;
 
     printk(KERN_INFO "sandboxer: What makest thou?\n");
 
-    if ((errno = initlib_init())) {
+    if ((errno = check_module_params()) != 0) {
+        printk(KERN_ERR "sandboxer: Could not parse parameters. Shutting down\n");
+        return errno;
+    }
+
+    if ((errno = initlib_init()) != 0) {
         printk(KERN_ERR "sandboxer: Initlib initialization failed with errno %d. Shutting down", errno);
         return errno;
     }
 
-    for (i = 0; i < 11; i++) {
-        twos[i] = 1 << i;
-        initlib_push(dummy_init_func, twos + i);
+    if ((errno = perform_tests()) != 0) {
+        printk(KERN_ERR "sandboxer: Tests failed.  Shutting down");
+        return errno;
     }
 
     if ((errno = sandboxer_init_probes()) != 0) {
         printk(KERN_ERR "sandboxer: Failed to initialized probes subsystem. Errno = %d\n", errno);
-        return errno;
-    }
-    //if ((errno = initlib_push_errmsg(failing_init_func, NULL, KERN_ERR "sandboxer: as waited")))
-        //return errno;
-
-    if ((errno = initlib_push(test_hashmap, NULL)) != 0) {
-        printk(KERN_ERR "sandboxer: Tests: Hashmap tests failed\n");
         return errno;
     }
 
