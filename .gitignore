@@ -41,3 +41,5 @@ src/module/*
 src/module/tests/*
 !src/module/tests/test-hashmap.c
 !src/module/tests/test-hashmap.h
+!src/module/tests/test-splay.h
+!src/module/tests/random-splay-test.c
