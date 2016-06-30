@@ -22,8 +22,8 @@
  */
 int initlib_init(void);
 
-/* Calls init_func(1, data) and adds init_func(0, data) to list of deinitialization functions. Also 
- * failure of init_func also does all deinitializations. 
+/* Calls init_func(1, data) and adds init_func(0, data) to list of deinitialization functions.
+ * Failure of init_func also does all deinitializations. 
  * Returns result of init_func or -ENOMEM in case of list entry structure allocation failure.
  */
 int initlib_push(int (*init_func)(int, void *), void *data);
@@ -31,7 +31,21 @@ int initlib_push(int (*init_func)(int, void *), void *data);
 /* Same as previous but prints errmesg in case of failure of init_func. */
 int initlib_push_errmsg(int (*init_func)(int, void *), void *data, const char *errmsg);
 
-/* Calling all deinitialization functions added by initlib_push and initlib_push_errmsg. */
+/**
+  * The most advanced initlib push overload.
+  * It allows to specify errmsg as in initlib_push_errmsg.
+  *
+  * Also allows to not treat init failure as fatal -- suitable if you have fallback alternative.
+  *
+  * If init was marked as "not fatal" and init failed, than:
+  * Current initialization stack is _not_ changed (not adding new entry and not undoing old).
+  * the init_func's errno is returned.
+  *
+  * In other cases function behaviour is similar to other initlib_push functions.
+  */
+int initlib_push_advanced(int (*init_func)(int, void *), void *data, const char *errmsg, bool is_fatal);
+
+/* Calling all deinitialization functions added by initlib_push functions.. */
 void initlib_pop_all(void);
 
 #endif //SANBOXER_INIT_H_

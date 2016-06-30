@@ -16,10 +16,47 @@
 
 #include <linux/kprobes.h>
 #include "init.h"
+#include <linux/sched.h>
 #include "probes.h"
 
+struct kprobe probe_task_exit;
+struct jprobe probe_syscall_enter;
+struct jprobe probe_syscall_leave;
+
+static int sandboxer_on_task_died(struct kprobe* kp, struct pt_regs* regs) {
+    return 0;
+}
+
+unsigned long sandboxer_on_syscall(struct pt_regs* regs, u32 arch) {
+    jprobe_return();
+    return 0; /* never called */
+}
+
+void sandboxer_on_sysleave(struct pt_regs* regs) {
+    jprobe_return();
+}
+
 int sandboxer_init_probes(void) {
-    // code here.
+    probe_task_exit.symbol_name = "do_exit";
+    probe_task_exit.pre_handler = sandboxer_on_task_died;
+    initlib_push_errmsg(init_or_shutdown_kprobe, &probe_task_exit,
+                        "sandboxer: failed to initialize probe on `do_exit`");
+
+    probe_syscall_enter.kp.symbol_name = "syscall_trace_enter_phase1";
+    probe_syscall_enter.entry          = sandboxer_on_syscall;
+    initlib_push_errmsg(init_or_shutdown_jprobe, &probe_syscall_enter,
+                        "sandboxer: failed to initialize probe on syscall enter");
+
+    probe_syscall_leave.kp.symbol_name = "syscall_return_slowpath";
+    probe_syscall_leave.entry          = sandboxer_on_sysleave;
+    if (initlib_push_advanced(init_or_shutdown_jprobe, &probe_syscall_leave,
+                              NULL, false)) {
+        printk("sandboxer: trying to fallback to oldschool syscall leave handler");
+        probe_syscall_leave.kp.symbol_name = "syscall_trace_leave";
+        initlib_push_errmsg(init_or_shutdown_jprobe, &probe_syscall_leave,
+                            "sandboxer: failed to initialized probe on syscall leave");
+    }
+
     return 0;
 }
 
