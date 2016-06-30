@@ -21,6 +21,7 @@
 #include "init.h"
 #include "probes.h"
 #include "tests/test-hashmap.h"
+#include "tests/test-splay.h"
 
 MODULE_LICENSE("GPL");
 
@@ -28,6 +29,8 @@ MODULE_LICENSE("GPL");
 
 static int perform_hashmap_test = 0;
 module_param(perform_hashmap_test, int, 0000);
+static int perform_random_splay_test = 0;
+module_param(perform_random_splay_test, int, 0000);
 
 /* Code: */
 
@@ -36,19 +39,31 @@ static int check_module_params(void) {
         printk(KERN_ERR "sandboxer: perform_hashmap_test is set to invalid value %d\n", perform_hashmap_test);
         return -EFAULT;
     }
+    if (perform_random_splay_test < 0 || perform_random_splay_test > 1) { 
+        printk(KERN_ERR "sandboxer: perform_random_splay_test is set to invalid value %d\n", 
+               perform_random_splay_test);
+        return -EFAULT;
+
+    }
 
     return 0;
 }
 
+#define SANDBOXER_PERFORM_TEST(param, func, test_param, msg) \
+    if ((param) == 1) {                                      \
+        if ((errno = initlib_push(func, test_param)) != 0) { \
+            printk(KERN_ERR "sandboxer: " msg);              \
+            return errno;                                    \
+        }                                                    \
+    }
+
 static int perform_tests(void) {
     int errno;
 
-    if (perform_hashmap_test == 1) {
-        if ((errno = initlib_push(test_hashmap, NULL)) != 0) {
-            printk(KERN_ERR "sandboxer: Tests: Hashmap tests failed\n");
-            return errno;
-        }
-    }
+    SANDBOXER_PERFORM_TEST(perform_hashmap_test, test_hashmap, NULL, 
+                           "Tests: Hashmap tests failed\n")
+    SANDBOXER_PERFORM_TEST(perform_random_splay_test, random_splay_test, NULL,
+                           "Tests: Random splay tree tests failed\n")
     
     return 0;
 }
