@@ -24,19 +24,6 @@ static u32 get_random(u32* seed, u32 min, u32 max) {
     return min + (*seed) % (max - min + 1);
 }
 
-static size_t hash_trivial(const struct hashmap* hmp, const void* obj, size_t tryid) {
-    size_t thehash = (size_t)obj;
-    thehash %= hmp->size;
-    thehash += tryid * tryid;
-    thehash %= hmp->size;
-
-    return thehash;
-}
-
-static bool equal_trivial(const void* obj1, const void* obj2) {
-    return obj1 == obj2;
-}
-
 int test_hashmap(int initlib_mode, void* ignored) {
     int i;
     int j;
@@ -69,8 +56,8 @@ int test_hashmap(int initlib_mode, void* ignored) {
         size_t* realvals;
         struct hashmap hmp;
 
-        hmp.hash = hash_trivial;
-        hmp.equal = equal_trivial;
+        hmp.hash = hashmap_hash_simple;
+        hmp.equal = hashmap_compare_simple;
         hmp.tolerance = 30;
         HMPTEST_EXPECT(init_hashmap(&hmp, get_random(&seed, 5000, 10000)) == 0, "failed hashmap creation");
 
