@@ -32,6 +32,8 @@ int main(int argc, char** argv) {
     int qtype, qint, ans, maxn;
     FILE *f;
 
+    srand(time(0));
+    
     if (argc == 1)
         /* If we set up this value to 2e9 it will rapidly eat out all the memory! */
         maxn = 2 * 1000 * 1000;
@@ -43,7 +45,6 @@ int main(int argc, char** argv) {
     /* cdkrot, I love that idea! */
     usleep((rand() % 1000 + 100) * 1000);
 
-    srand(time(0));
     for (;;) {
         qtype = rand() % 3;
         qint = rand() % maxn;

@@ -165,7 +165,7 @@ static int insert_value(int x) {
 
     if (find(x))
         return 0;
-    n = kmalloc(sizeof(struct node), GFP_KERNEL | GFP_ATOMIC);
+    n = kmalloc(sizeof(struct node), GFP_ATOMIC);
     if (!n)
         return -ENOMEM;
     n->x = x;
@@ -250,7 +250,7 @@ static bool equal_trivial(const void *obj1, const void *obj2) {
 
 static void *seq_start(struct seq_file *s, loff_t *pos) {
     if (*pos == 0 && hashmap_get(&hmp, (void*)((size_t)current->pid)) != (void*)(NULL)) {
-        return (void*)hashmap_get((&hmp), (void*)((size_t)current->pid));
+        return hashmap_get(&hmp, (void*)((size_t)current->pid));
     } else {
         *pos = 0;
         return NULL;
@@ -340,7 +340,6 @@ int init_splay_threading_test(int initlib_mode, __attribute__((unused)) void *ig
                              "initializing splay threading test\n");
             goto out;
         }
-
         entry = proc_create("sbsplay_test", 0666, NULL, &fops);
         if (!entry) {
             errno = -ENOMEM;
