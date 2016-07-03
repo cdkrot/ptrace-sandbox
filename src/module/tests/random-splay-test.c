@@ -26,7 +26,7 @@ static const int MOD = 1791791;
 
 static const int ELEMS = 1e5, OPS = 2e6;
 
-int next_rand(void) {
+static int next_rand(void) {
     return last = (last + step) % MOD;
 }
 

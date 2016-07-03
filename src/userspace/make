@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+
+# < Configuration >
+CC=gcc -Wall -Wextra -Wshadow -Wimplicit -std=gnu11
+
+# < Main targets >
+all: bin/userspace/threading-splay-test
+
+help:
+	@echo "Do not call this make directly"
+	@echo "Use ./build in project root"
+
+.PHONY: all help
+
+# < Targets >
+bin/userspace/threading-splay-test: src/userspace/threading-splay-test.c
+	${CC} src/userspace/threading-splay-test.c -o bin/userspace/threading-splay-test

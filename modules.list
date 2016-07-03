@@ -14,7 +14,7 @@
         "description": "Cleans module building results"
     },
     "all": {
-        "depend": ["demos", "ptrace-gen", "ptrace-main", "ptrace-utils", "module"],
+        "depend": ["demos", "ptrace-gen", "ptrace-main", "ptrace-utils", "module", "userspace"],
         "build": [],
         "description": "Build everything"
     },
@@ -61,5 +61,14 @@
             "cp ./src/module/sandboxer.ko ./bin/module"
         ],
         "description": "build sandboxer.ko kernel module"
+    },
+    "userspace": {
+        "depend": [],
+        "build": [
+            "mkdir -p bin/userspace",
+            "./src/userspace/make"
+        ],
+        "description": "userspace utilities",
+        "build_if": "! ./src/userspace/make -q"
     }
 }

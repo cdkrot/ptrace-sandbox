@@ -31,6 +31,8 @@ static int perform_hashmap_test = 0;
 module_param(perform_hashmap_test, int, 0000);
 static int perform_random_splay_test = 0;
 module_param(perform_random_splay_test, int, 0000);
+static int enable_splay_threading_test = 0;
+module_param(enable_splay_threading_test, int, 0000);
 
 /* Code: */
 
@@ -43,7 +45,11 @@ static int check_module_params(void) {
         printk(KERN_ERR "sandboxer: perform_random_splay_test is set to invalid value %d\n", 
                perform_random_splay_test);
         return -EFAULT;
-
+    }
+    if (enable_splay_threading_test < 0 || enable_splay_threading_test > 1) {
+        printk(KERN_ERR "sandboxer: enable_splay_threading_test is set to invalid value %d\n",
+               enable_splay_threading_test);
+        return -EFAULT;
     }
 
     return 0;
@@ -64,6 +70,8 @@ static int perform_tests(void) {
                            "Tests: Hashmap tests failed\n")
     SANDBOXER_PERFORM_TEST(perform_random_splay_test, random_splay_test, NULL,
                            "Tests: Random splay tree tests failed\n")
+    SANDBOXER_PERFORM_TEST(enable_splay_threading_test, init_splay_threading_test, NULL,
+                           "Tests: Initialization of splay threading test failed\n")
     
     return 0;
 }
