@@ -115,4 +115,16 @@ void hashmap_free(struct hashmap* hmp);
   */
 int hashmap_set(struct hashmap* hmp, const void* key, void* value, void** oldval);
 
+
+/**
+  * Simple equal function for use with hashmap.
+  * Just checks pointers equality.
+  */
+bool hashmap_compare_simple(const void*, const void*);
+
+/**
+  * Simple hash function for use with hashmap.
+  */
+size_t hashmap_hash_simple(const struct hashmap*, const void*, size_t tryid);
+
 #endif

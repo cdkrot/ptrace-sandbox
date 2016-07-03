@@ -32,7 +32,7 @@ int initlib_init(void) {
     return 0;
 }
 
-static int initlib_do_push(int (*init_func)(int, void *), void *data, const char *msg, bool unroll) {
+int initlib_push_advanced(int (*init_func)(int, void *), void *data, const char *msg, bool unroll) {
     struct initlib_entry *entry;
     int errno = 0;
 
@@ -66,11 +66,11 @@ out_fail:
 }
 
 int initlib_push(int (*init_func)(int, void *), void *data) {
-    return initlib_do_push(init_func, data, NULL, true);
+    return initlib_push_advanced(init_func, data, NULL, true);
 }
 
 int initlib_push_errmsg(int (*init_func)(int, void *), void *data, const char *errmsg) {
-    return initlib_do_push(init_func, data, errmsg, true);
+    return initlib_push_advanced(init_func, data, errmsg, true);
 }
 
 void initlib_pop_all(void) {

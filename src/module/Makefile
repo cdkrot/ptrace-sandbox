@@ -2,7 +2,7 @@
 
 ifneq ($(KERNELRELEASE),)
 obj-m := sandboxer.o
-sandboxer-y := core.o init.o probes.o hashmap.o splay.o tests/test-hashmap.o tests/random-splay-test.o tests/threading-splay-test.o
+sandboxer-y := core.o init.o probes.o hashmap.o splay.o slot.o tests/test-hashmap.o tests/random-splay-test.o tests/threading-splay-test.o
 else
 
 all: 

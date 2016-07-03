@@ -154,3 +154,16 @@ int hashmap_set(struct hashmap* hmp, const void* key, void* value, void** oldval
 void hashmap_free(struct hashmap* hmp) {
     kfree(hmp->data);
 }
+
+bool hashmap_compare_simple(const void* key1, const void* key2) {
+    return key1 == key2;
+}
+
+size_t hashmap_hash_simple(const struct hashmap* hmp, const void* obj, size_t tryid) {
+    size_t thehash = (size_t)obj;
+    thehash %= hmp->size;
+    thehash += tryid * tryid;
+    thehash %= hmp->size;
+
+    return thehash;
+}
