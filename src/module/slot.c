@@ -3,6 +3,7 @@
 #include <linux/sched.h>
 #include <linux/pid.h>
 #include <linux/slab.h>
+#include <linux/thread_info.h>
 #include "hashmap.h"
 #include "slot.h"
 
@@ -19,7 +20,7 @@ static atomic_t slot_uid_gen = ATOMIC_INIT(0);
 module_param(hashmap_size_hint, int, 0);
 module_param(hashmap_tolerance, int, 0);
 
-int init_or_shutdown_slots(bool is_init, void* ign) {
+int init_or_shutdown_slots(int is_init, void* ign) {
     if (is_init) {
         if (hashmap_size_hint <= 0 || hashmap_tolerance <= 0)
             return -EINVAL;
@@ -61,6 +62,10 @@ struct sandbox_slot* create_slot(void) {
     res->time_usage = 0;
     res->time_limit = 0;
 
+    // pretend, that userspace syscall audition feature enabled.
+    // this way we can trace all syscall events.
+    set_thread_flag(TIF_SYSCALL_AUDIT);
+
     spin_lock_init(&res->lock);
     return res;
 }
@@ -78,8 +83,10 @@ void release_slot(void) {
 
         spin_unlock_irqrestore(&pslot->lock, flags);
 
-        if (del)
+        if (del) {
+            put_pid(pslot->mentor);
             kfree(pslot);
+        }
     }
 }
 
@@ -94,8 +101,10 @@ void release_slot_ref(struct sandbox_slot* pslot) {
     del = (pslot->ref_cnt == 0 && pslot->num_alive == 0);
 
     spin_unlock_irqrestore(&pslot->lock, flags);
-    if (del)
+    if (del) {
+        put_pid(pslot->mentor);
         kfree(pslot);
+    }
 }
 
 struct sandbox_slot* get_slot_ref(struct sandbox_slot* pslot) {

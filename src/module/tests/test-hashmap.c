@@ -83,6 +83,7 @@ int test_hashmap(int initlib_mode, void* ignored) {
                 HMPTEST_EXPECT((size_t)oldval_hmp == realvals[key], "Hashmap returns wrong data");
                 realvals[key] = newval;
             }
+        hashmap_free(&hmp);
     }
     printk(KERN_INFO "sandboxer: Hashmap tests succeeded");
     return 0;

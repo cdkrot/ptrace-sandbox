@@ -73,6 +73,6 @@ struct sandbox_slot* get_slot_ref(struct sandbox_slot* slot);
 /**
   * Use with initlib
   */
-int init_or_shutdown_slots(bool is_init, void* ign);
+int init_or_shutdown_slots(int is_init, void* ign);
 
 #endif

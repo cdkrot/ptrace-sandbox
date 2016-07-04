@@ -20,6 +20,7 @@
 
 #include "init.h"
 #include "probes.h"
+#include "slot.h"
 #include "tests/test-hashmap.h"
 #include "tests/test-splay.h"
 
@@ -80,28 +81,37 @@ static int __init sandboxer_module_init(void) {
     int errno = 0;
 
     printk(KERN_INFO "sandboxer: What makest thou?\n");
+    printk(KERN_INFO "sandboxer: Gnu make of course!\n");
 
     if ((errno = check_module_params()) != 0) {
-        printk(KERN_ERR "sandboxer: Could not parse parameters. Shutting down\n");
-        return errno;
+        printk(KERN_ERR "sandboxer: Could not parse parameters.\n");
+        goto out_error;
     }
 
     if ((errno = initlib_init()) != 0) {
-        printk(KERN_ERR "sandboxer: Initlib initialization failed with errno %d. Shutting down", errno);
-        return errno;
+        printk(KERN_ERR "sandboxer: Initlib initialization failed.\n");
+        goto out_error;
     }
 
     if ((errno = perform_tests()) != 0) {
-        printk(KERN_ERR "sandboxer: Tests failed.  Shutting down");
-        return errno;
+        printk(KERN_ERR "sandboxer: Tests failed.\n");
+        goto out_error;
     }
 
     if ((errno = sandboxer_init_probes()) != 0) {
-        printk(KERN_ERR "sandboxer: Failed to initialized probes subsystem. Errno = %d\n", errno);
-        return errno;
+        printk(KERN_ERR "sandboxer: Failed to initialized probes subsystem.\n");
+        goto out_error;
+    }
+
+    if ((errno = initlib_push(init_or_shutdown_slots, NULL)) != 0) {
+        printk(KERN_ERR "sandboxer: Failed to initialize slots subsystem.\n");
+        goto out_error;
     }
 
     return 0;
+out_error:
+    printk(KERN_ERR "sandboxer: Fatal error during initilization, errno is %d\n", errno);
+    return errno;
 }
 
 static void __exit sandboxer_module_exit(void) {
