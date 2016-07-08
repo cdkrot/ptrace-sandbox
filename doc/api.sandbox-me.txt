@@ -1,0 +1,14 @@
+This document provides a short draft of /proc/sandboxer/sandbox-me file.
+
+
+Writing
+=======
+Sandboxer supports writing onlu one byte '1' (ASCII 49) to this file. This
+action means that from now and until process's death this process will be
+sandboxed by its parent. Attempts to write any other information will receive
+-EBADRQC as the result of SYS_write system call.
+
+Reading
+=======
+Any process can always read information about its slot id from this file. If
+process is not sandboxed, 0 will be read from that file.

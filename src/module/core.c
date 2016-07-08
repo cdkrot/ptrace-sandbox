@@ -21,6 +21,7 @@
 #include "init.h"
 #include "probes.h"
 #include "slot.h"
+#include "proc.h"
 #include "tests/test-hashmap.h"
 #include "tests/test-splay.h"
 
@@ -81,7 +82,7 @@ static int __init sandboxer_module_init(void) {
     int errno = 0;
 
     printk(KERN_INFO "sandboxer: What makest thou?\n");
-    printk(KERN_INFO "sandboxer: Gnu make of course!\n");
+    printk(KERN_INFO "sandboxer: I wanna come'n sandbox'ya!\n");
 
     if ((errno = check_module_params()) != 0) {
         printk(KERN_ERR "sandboxer: Could not parse parameters.\n");
@@ -105,6 +106,11 @@ static int __init sandboxer_module_init(void) {
 
     if ((errno = initlib_push(init_or_shutdown_slots, NULL)) != 0) {
         printk(KERN_ERR "sandboxer: Failed to initialize slots subsystem.\n");
+        goto out_error;
+    }
+
+    if ((errno = initlib_push(init_or_shutdown_sandboxer_proc_dir, NULL)) != 0) {
+        printk(KERN_ERR "sandboxer: Failed to initialize proc subsystem.\n");
         goto out_error;
     }
 
