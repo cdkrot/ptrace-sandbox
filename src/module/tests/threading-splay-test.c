@@ -18,6 +18,7 @@
 #include "../splay.h"
 #include "../hashmap.h"
 
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>

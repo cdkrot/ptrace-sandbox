@@ -48,6 +48,11 @@ struct sandbox_slot* create_slot(void) {
     if (!res)
         return NULL;
 
+    if (hashmap_set(&hmp, task_pid(current), res, NULL)) {
+        kfree(res);
+        return NULL;
+    }
+
     // TODO: is this thread-safe?
     res->mentor = get_pid(task_pid(current->real_parent));
 
@@ -79,6 +84,7 @@ void release_slot(void) {
         spin_lock_irqsave(&pslot->lock, flags);
 
         pslot->num_alive -= 1;
+        BUG_ON(hashmap_set(&hmp, task_pid(current), NULL, NULL) != 0);
         del = (pslot->num_alive == 0 && pslot->ref_cnt == 0);
 
         spin_unlock_irqrestore(&pslot->lock, flags);
