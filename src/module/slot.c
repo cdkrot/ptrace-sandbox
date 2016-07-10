@@ -44,7 +44,12 @@ struct sandbox_slot* get_slot_of(void) {
 }
 
 struct sandbox_slot* create_slot(void) {
-    struct sandbox_slot* res = kmalloc(sizeof(struct sandbox_slot), GFP_KERNEL);
+    struct sandbox_slot* res;
+
+    if (get_slot_of() != NULL)
+        return NULL;
+
+    res = kmalloc(sizeof(struct sandbox_slot), GFP_KERNEL);
     if (!res)
         return NULL;
 
