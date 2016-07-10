@@ -15,15 +15,17 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <linux/kprobes.h>
-#include "init.h"
 #include <linux/sched.h>
+#include "init.h"
 #include "probes.h"
+#include "slot.h"
 
 struct kprobe probe_task_exit;
 struct jprobe probe_syscall_enter;
 struct jprobe probe_syscall_leave;
 
 static int sandboxer_on_task_died(struct kprobe* kp, struct pt_regs* regs) {
+    release_slot();
     return 0;
 }
 
