@@ -22,12 +22,12 @@
 
 /* /proc/sandboxer/sandbox_me behaviour implementation: */
 
-static const char SANDBOX_RESTICTED[2] = "1";
+static const char SANDBOX_RESTICTED = '1';
 
 static ssize_t sandbox_me_write(struct file *file, const char *buffer, size_t length, loff_t *offset) {
     if (*offset > 0)
         return 0;
-    if (strcmp(buffer, SANDBOX_RESTICTED) == 0) {
+    if (length == 1 && *buffer == SANDBOX_RESTICTED) {
         if (create_slot() == NULL)
             return -ENOMEM;
     } else
