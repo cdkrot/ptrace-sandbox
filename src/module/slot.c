@@ -1,3 +1,19 @@
+//  Sandboxer, kernel module sandboxing stuff
+//  Copyright (C) 2016  Alferov Vasiliy, Sayutin Dmitry
+//
+//  This program is free software: you can redistribute it and/or modify
+//  it under the terms of the GNU General Public License as published by
+//  the Free Software Foundation, either version 3 of the License, or
+//  (at your option) any later version.
+//
+//  This program is distributed in the hope that it will be useful,
+//  but WITHOUT ANY WARRANTY; without even the implied warranty of
+//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+//  GNU General Public License for more details.
+//
+//  You should have received a copy of the GNU General Public License
+//  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 #include <linux/moduleparam.h>
 #include <linux/types.h>
 #include <linux/sched.h>
@@ -5,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/thread_info.h>
 #include "hashmap.h"
+#include "notifications.h"
 #include "slot.h"
 
 static struct hashmap hmp;
@@ -77,6 +94,10 @@ struct sandbox_slot* create_slot(void) {
     set_thread_flag(TIF_SYSCALL_AUDIT);
 
     spin_lock_init(&res->lock);
+
+    increase_mentor_refcnt(res->mentor);
+    send_slot_create_notification(res);
+
     return res;
 }
 
@@ -95,6 +116,9 @@ void release_slot(void) {
         spin_unlock_irqrestore(&pslot->lock, flags);
 
         if (del) {
+            send_slot_term_notification(pslot);
+            decrease_mentor_refcnt(pslot->mentor);
+
             put_pid(pslot->mentor);
             kfree(pslot);
         }
@@ -113,6 +137,9 @@ void release_slot_ref(struct sandbox_slot* pslot) {
 
     spin_unlock_irqrestore(&pslot->lock, flags);
     if (del) {
+        send_slot_term_notification(pslot);
+        decrease_mentor_refcnt(pslot->mentor);
+
         put_pid(pslot->mentor);
         kfree(pslot);
     }

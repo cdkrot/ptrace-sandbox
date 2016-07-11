@@ -182,7 +182,7 @@ static int insert_value(int x) {
     return 0;
 }
 
-DEFINE_SPINLOCK(splay_lock);
+static DEFINE_SPINLOCK(splay_lock);
 
 struct hashmap hmp;
 

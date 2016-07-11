@@ -36,6 +36,8 @@ src/module/*
 !src/module/mentor.c
 !src/module/hashmap.h
 !src/module/hashmap.c
+!src/module/notifications.h
+!src/module/notifications.c
 
 !src/module/tests
 src/module/tests/*
