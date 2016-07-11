@@ -43,9 +43,9 @@ struct mem_lim_notification {
 };
 
 enum notification_type_t {
-    SLOT_CREATE = 0,
-    SLOT_STOP = 1,
-    SLOT_TERM = 2,
+    SLOT_CREATE,
+    SLOT_STOP,
+    SLOT_TERM,
     SEC_VIOL,
     MEM_LIM
 };

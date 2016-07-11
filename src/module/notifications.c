@@ -124,8 +124,6 @@ static void remove_value(struct pid *pid) {
     struct notification_queue *snode;
     struct splay_tree_node *n;
 
-    printk(KERN_INFO "sandboxer: removing pid %p\n", pid);
-
     n = find(pid);
     if (!n)
         return;
@@ -162,8 +160,6 @@ struct notification_queue* allocate_queue(struct pid *pid) {
 
 static int insert_value(struct pid *pid) {
     struct notification_queue *n;
-
-    printk(KERN_INFO "sandboxer: inserting pid %p\n", pid); 
 
     if (find(pid))
         return 0;
@@ -221,9 +217,6 @@ static struct notification perform_query(enum notification_query_t type, int *er
 
         notification = data;
         n = find(pid);
-        if (!n) {
-            printk(KERN_ERR "sandboxer: BUG: type %d pid %p\n", notification->type, pid);
-        }
         BUG_ON(!n);
         q = get_queue(n);
 
@@ -293,7 +286,6 @@ static struct notification perform_query(enum notification_query_t type, int *er
                 get_queue(n)->ref_cnt++;
             }
         }
-        printk(KERN_INFO "sandboxer: connected slot to mentor %p. mentor ref_cnt is now %d.\n", pid, get_queue(n)->ref_cnt);
 
     } else if (type == NOTIFICATION_REMOVE_SLOT) {
 
@@ -302,7 +294,6 @@ static struct notification perform_query(enum notification_query_t type, int *er
         q = get_queue(n);
         BUG_ON(q->ref_cnt == 0);
         q->ref_cnt--;
-        printk(KERN_INFO "sandboxer: disconnected slot from mentor %p. mentor ref_cnt is now %d.\n", pid, q->ref_cnt);
         if (q->ref_cnt == 0) {
             if (q->qsz == 0 && !waitqueue_active(&q->wq)) {
                 remove_value(pid);
