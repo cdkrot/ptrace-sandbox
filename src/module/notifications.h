@@ -84,6 +84,8 @@ void send_notification(struct pid *pid, struct notification n);
  **/
 int read_notification(struct pid *pid, struct notification *n);
 
+void on_mentor_died(struct pid* pid);
+
 /*
  * Folowing functions just send notifications of all types
  **/

@@ -33,7 +33,7 @@ module_param(notification_queue_size, int, 0000);
 struct notification_queue {
     struct pid *pid;
     struct splay_tree_node node;
-    
+
     int ref_cnt;
     struct semaphore queue_semaphore;
 
@@ -150,7 +150,7 @@ struct notification_queue* allocate_queue(struct pid *pid) {
         return NULL;
     }
     ret->pid = pid;
-    ret->ref_cnt = 0;
+    ret->ref_cnt = (pid_task(pid, PIDTYPE_PID) != NULL);
     sema_init(&(ret->queue_semaphore), notification_queue_size);
     spin_lock_init(&(ret->queue_spinlock));
     ret->ql = ret->qr = ret->qsz = 0;
@@ -180,157 +180,126 @@ static int insert_value(struct pid *pid) {
 
 static DEFINE_SPINLOCK(splay_lock);
 
-enum notification_query_t {
-    NOTIFICATION_ADD, /* send notification */
-    NOTIFICATION_READ,
-    NOTIFICATION_ADD_SLOT,
-    NOTIFICATION_REMOVE_SLOT,
-};
-
 static bool check_queue_and_lock(struct notification_queue *q) {
-    if (q->qsz != 0) {
-        spin_lock(&splay_lock);
-        return true;
-    }
-    return false;
-}
-
-static struct notification perform_query(enum notification_query_t type, int *errno, struct pid *pid, void *data) {
-    struct notification ret;
-    struct notification *notification;
-    struct splay_tree_node *n;
-    struct notification_queue *q;
-    bool do_wake_up;
-    bool removed_slot = false;
-
-    spin_lock(&splay_lock);
-    n = find(pid);
-    spin_unlock(&splay_lock);
-
-    if ((type == NOTIFICATION_READ || type == NOTIFICATION_ADD_SLOT) && (n == NULL)) {
-        get_pid(pid);
-    }
-
-    spin_lock(&splay_lock);
-
-    if (type == NOTIFICATION_ADD) {
-
-        notification = data;
-        n = find(pid);
-        BUG_ON(!n);
-        q = get_queue(n);
-
-        spin_unlock(&splay_lock);
-
-        down(&q->queue_semaphore);
-
-        spin_lock(&q->queue_spinlock);
-        q->queue[q->qr] = *notification;
-        q->qr = (q->qr + 1) % notification_queue_size;
-        do_wake_up = (++q->qsz == 1);
-        spin_unlock(&q->queue_spinlock); 
-
-        if (do_wake_up) {
-            wake_up_interruptible(&q->wq);
-        }
-
-        ret = *notification;
-        goto out_unlocked;
-
-    } else if (type == NOTIFICATION_READ) {
-
-        n = find(pid);
-        if (!n) {
-            *errno = insert_value(pid);
-            n = find(pid);
-            if (!n) {
-                goto out_locked;
-            }
-        }
-
-        q = get_queue(n);
-        
-        if (q->qsz == 0) {
-            spin_unlock(&splay_lock);
-            if (wait_event_interruptible(q->wq, check_queue_and_lock(q))) {
-                *errno = -ERESTARTSYS;
-                goto out_unlocked;
-            }
-        }
-
-        spin_lock(&q->queue_spinlock);        
-        ret = q->queue[q->ql];
-        q->ql = (q->ql + 1) % notification_queue_size;
-        q->qsz--;
+    bool res;
+    spin_lock(&q->queue_spinlock);
+    res = (q->qsz != 0);
+    if (!res)
         spin_unlock(&q->queue_spinlock);
 
-        if (q->ref_cnt == 0 && q->qsz == 0) {
-            remove_value(pid);
-            spin_unlock(&splay_lock);
-            removed_slot = true;
-            goto out_unlocked;
-        }
-
-        up(&q->queue_semaphore);
-
-    } else if (type == NOTIFICATION_ADD_SLOT) {
-
-        n = find(pid);
-        if (n) {
-            get_queue(n)->ref_cnt++;
-            *errno = 0;
-        } else {
-            *errno = insert_value(pid);
-            n = find(pid);
-            if (n) {
-                get_queue(n)->ref_cnt++;
-            }
-        }
-
-    } else if (type == NOTIFICATION_REMOVE_SLOT) {
-
-        n = find(pid);
-        BUG_ON(!n);
-        q = get_queue(n);
-        BUG_ON(q->ref_cnt == 0);
-        q->ref_cnt--;
-        if (q->ref_cnt == 0) {
-            if (q->qsz == 0 && !waitqueue_active(&q->wq)) {
-                remove_value(pid);
-                removed_slot = true;
-            }
-        }
-
-    }
-
-out_locked:
-
-    spin_unlock(&splay_lock);
-    
-out_unlocked:
-    
-    if (removed_slot)
-        put_pid(pid);
-
-    return ret;
+    return res;
 }
 
 int increase_mentor_refcnt(struct pid *pid) {
-    int errno;
-    perform_query(NOTIFICATION_ADD_SLOT, &errno, pid, NULL);
-    return errno;
+    struct splay_tree_node* node;
+    int errno = 0;
+
+    spin_lock(&splay_lock);
+    node = find(pid);
+    if (!node) {
+        if ((errno = insert_value(pid))) {
+            spin_unlock(&splay_lock);
+            return errno;
+        }
+        node = find(pid);
+        BUG_ON(!node);
+    }
+    get_queue(node)->ref_cnt += 1;
+    spin_unlock(&splay_lock);
+    return 0;
 }
 
 void decrease_mentor_refcnt(struct pid *pid) {
-    perform_query(NOTIFICATION_REMOVE_SLOT, NULL, pid, NULL);
+    struct splay_tree_node* node;
+    struct notification_queue* queue;
+
+    spin_lock(&splay_lock);
+    node = find(pid);
+    if (!node) {
+        printk("WTF\n");
+        return;
+    }
+    BUG_ON(!node);
+    queue = get_queue(node);
+    BUG_ON(queue->ref_cnt == 0);
+    queue->ref_cnt -= 1;
+    if (queue->ref_cnt == 0)
+        remove_value(pid);
+    spin_unlock(&splay_lock);
 }
 
-void send_notification(struct pid *pid, struct notification n) {
-    perform_query(NOTIFICATION_ADD, NULL, pid, &n);
+void send_notification(struct pid *pid, struct notification notif) {
+    struct splay_tree_node* node;
+    struct notification_queue* queue;
+    bool do_wakeup;
+
+    spin_lock(&splay_lock);
+    node = find(pid);
+    BUG_ON(!node);
+    spin_unlock(&splay_lock);
+
+    queue = get_queue(node);
+    down(&queue->queue_semaphore);
+
+    spin_lock(&queue->queue_spinlock);
+    queue->queue[queue->qr] = notif;
+    queue->qr = (queue->qr + 1) % notification_queue_size;
+    queue->qsz += 1;
+    do_wakeup = (queue->qsz == 1);
+    spin_unlock(&queue->queue_spinlock);
+
+    if (do_wakeup)
+        wake_up_interruptible(&queue->wq);
 }
 
-int read_notification(struct pid *pid, struct notification *n) {
+int read_notification(struct pid *pid, struct notification *out) {
+    // TODO: rewrite in such manner, that errno will not be possible.
+    struct splay_tree_node* node;
+    struct notification_queue* queue;
     int errno = 0;
-    *n = perform_query(NOTIFICATION_READ, &errno, pid, NULL);
-    return errno;
+
+    spin_lock(&splay_lock);
+    node = find(pid);
+    if (!node) {
+        if ((errno = insert_value(pid))) {
+            spin_unlock(&splay_lock);
+            return errno;
+        }
+        node = find(pid);
+    }
+    spin_unlock(&splay_lock);
+    queue = get_queue(node);
+
+    if (wait_event_interruptible(queue->wq, check_queue_and_lock(queue)))
+        return -ERESTARTSYS;
+    *out = queue->queue[queue->ql];
+    queue->ql += 1;
+    queue->qsz -= 1;
+    spin_unlock(&queue->queue_spinlock);
+
+    up(&queue->queue_semaphore);
+
+    return 0;
+}
+
+void on_mentor_died(struct pid* pid) {
+    // TODO: also set mentor_is_dead flag here.
+
+    struct splay_tree_node* node;
+    struct notification_queue* queue;
+    bool do_delete;
+
+    spin_lock(&splay_lock);
+    node = find(pid);
+    if (node) {
+        queue = get_queue(node);
+        spin_lock(&queue->queue_spinlock);
+        queue->ref_cnt -= 1;
+        do_delete = (queue->ref_cnt == 0);
+        spin_unlock(&queue->queue_spinlock);
+
+        if (do_delete)
+            remove_value(pid);
+    }
+    spin_unlock(&splay_lock);
 }

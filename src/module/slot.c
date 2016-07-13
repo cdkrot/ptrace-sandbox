@@ -75,7 +75,12 @@ struct sandbox_slot* create_slot(void) {
         return NULL;
     }
 
-    // TODO: is this thread-safe?
+    if (increase_mentor_refcnt(task_pid(current->real_parent))) {
+        hashmap_set(&hmp, task_pid(current), NULL, NULL);
+        kfree(res);
+        return NULL;
+    }
+
     res->mentor = get_pid(task_pid(current->real_parent));
 
     res->num_alive = 1;
@@ -95,7 +100,6 @@ struct sandbox_slot* create_slot(void) {
 
     spin_lock_init(&res->lock);
 
-    increase_mentor_refcnt(res->mentor);
     send_slot_create_notification(res);
 
     return res;

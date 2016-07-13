@@ -19,6 +19,7 @@
 #include "init.h"
 #include "probes.h"
 #include "slot.h"
+#include "notifications.h"
 
 struct kprobe probe_task_exit;
 struct jprobe probe_syscall_enter;
@@ -26,6 +27,7 @@ struct jprobe probe_syscall_leave;
 
 static int sandboxer_on_task_died(struct kprobe* kp, struct pt_regs* regs) {
     release_slot();
+    on_mentor_died(task_pid(current));
     return 0;
 }
 
