@@ -27,13 +27,14 @@ int child() {
     return 0;
 }
 
-int main() {
+int main(int argc, char** argv) {
     srand(time(0));
     FILE *f;
     char buf[100];
     int exited = 0;
+    int num_slots = (1 < argc ? atoi(argv[1]) : 4);
     
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < num_slots; i++) {
         if (!fork())
             return child();
     }
@@ -49,7 +50,7 @@ int main() {
         if (strncmp(buf, "SLOT_TERM", 9) == 0)
             exited++;
 
-        if (exited == 4)
+        if (exited == num_slots)
             break;
     }
     printf("exited: %d\n", exited);
