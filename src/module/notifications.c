@@ -30,13 +30,18 @@ module_param(notification_queue_size, int, 0000);
 
 // Code related to the tree:
 
+// locking info:
+// pid is immutable
+// node, ref_cnt covered by splay_lock.
+// ql, qr, qz, queue, mentor_dead covered by queue_spinlock
 struct notification_queue {
     struct pid *pid;
     struct splay_tree_node node;
 
-    int ref_cnt;
+    int ref_cnt; // equal to !mentor_dead + num_connected_slots.
     struct semaphore queue_semaphore;
 
+    int mentor_dead;
     spinlock_t queue_spinlock;
     int ql, qr, qsz;
     struct notification *queue;
@@ -150,7 +155,8 @@ struct notification_queue* allocate_queue(struct pid *pid) {
         return NULL;
     }
     ret->pid = pid;
-    ret->ref_cnt = (pid_task(pid, PIDTYPE_PID) != NULL);
+    ret->mentor_dead = pid_task(pid, PIDTYPE_PID) == NULL;
+    ret->ref_cnt = !(ret->mentor_dead);
     sema_init(&(ret->queue_semaphore), notification_queue_size);
     spin_lock_init(&(ret->queue_spinlock));
     ret->ql = ret->qr = ret->qsz = 0;
@@ -215,10 +221,6 @@ void decrease_mentor_refcnt(struct pid *pid) {
 
     spin_lock(&splay_lock);
     node = find(pid);
-    if (!node) {
-        printk("WTF\n");
-        return;
-    }
     BUG_ON(!node);
     queue = get_queue(node);
     BUG_ON(queue->ref_cnt == 0);
@@ -231,7 +233,7 @@ void decrease_mentor_refcnt(struct pid *pid) {
 void send_notification(struct pid *pid, struct notification notif) {
     struct splay_tree_node* node;
     struct notification_queue* queue;
-    bool do_wakeup;
+    bool do_wakeup = false;
 
     spin_lock(&splay_lock);
     node = find(pid);
@@ -242,10 +244,14 @@ void send_notification(struct pid *pid, struct notification notif) {
     down(&queue->queue_semaphore);
 
     spin_lock(&queue->queue_spinlock);
-    queue->queue[queue->qr] = notif;
-    queue->qr = (queue->qr + 1) % notification_queue_size;
-    queue->qsz += 1;
-    do_wakeup = (queue->qsz == 1);
+    if (queue->mentor_dead)
+        up(&queue->queue_semaphore);
+    else {
+        queue->queue[queue->qr] = notif;
+        queue->qr = (queue->qr + 1) % notification_queue_size;
+        queue->qsz += 1;
+        do_wakeup = (queue->qsz == 1);
+    }
     spin_unlock(&queue->queue_spinlock);
 
     if (do_wakeup)
@@ -293,13 +299,19 @@ void on_mentor_died(struct pid* pid) {
     node = find(pid);
     if (node) {
         queue = get_queue(node);
+
         spin_lock(&queue->queue_spinlock);
+        queue->mentor_dead = true;
         queue->ref_cnt -= 1;
         do_delete = (queue->ref_cnt == 0);
         spin_unlock(&queue->queue_spinlock);
 
         if (do_delete)
             remove_value(pid);
+        else {
+            up(&queue->queue_semaphore);
+            up(&queue->queue_semaphore);
+        }
     }
     spin_unlock(&splay_lock);
 }
