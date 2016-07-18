@@ -14,22 +14,31 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef SANDBOXER_PROC_H_
-#define SANDBOXER_PROC_H_
-
-#include <linux/types.h>
 #include <linux/seq_file.h>
-#include "slot.h"
+#include "properties.h"
+#include "proc.h"
 
 /* 
- * Initializes /proc/sandboxer directory and files there. Initlib-friendly.
- */
-int init_or_shutdown_sandboxer_proc_dir(int initlib_mode, __attribute__((unused))void* ignored);
+ * Here is an example of callback.
+ **/
+static int slot_id_callback(struct seq_file *s, size_t slot_id) {
+    seq_printf(s, "%lu\n", slot_id);
+    return 0;
+}
 
- 
-int add_slot_property(const char *name, int (*cb)(struct seq_file *, size_t));
+#define ADD_PROPERTY(name, cb)                         \
+    if ((errno = add_slot_property(name, cb)) != 0) {  \
+        return errno;                                  \
+    }
 
-int create_slotid_dir(struct sandbox_slot *s);
-void destroy_slotid_dir(struct sandbox_slot *s);
+int init_or_shutdown_properties(int initlib_mode, __attribute__((unused)) void *ignored) {
+    int errno = 0;
 
-#endif //SANDBOXER_PROC_H_
+    if (initlib_mode) {
+        ADD_PROPERTY("slot_id", slot_id_callback); 
+
+        return 0;
+    } else {
+        return 0;
+    }
+};

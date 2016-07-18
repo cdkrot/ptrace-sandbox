@@ -20,6 +20,7 @@
 #include <linux/sched.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
+#include <linux/proc_fs.h>
 
 struct sandbox_slot {
     struct pid* mentor; /* pointer to mentor, never null */
@@ -37,7 +38,8 @@ struct sandbox_slot {
     size_t time_limit;
 
     spinlock_t lock;
-//  struct proc_dir_entry slotid_dir; /* handle to /proc entry  via proc.{c,h}
+    struct proc_dir_entry *slotid_dir; /* handle to /proc entry  via proc.{c,h} */
+    struct list_head property_files; /* list of files in /proc/sandboxer/[slot_id]/ */
 };
 
 /**

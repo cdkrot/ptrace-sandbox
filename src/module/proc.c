@@ -21,6 +21,9 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/wait.h>
+#include <linux/list.h>
+#include <linux/types.h>
 
 /* /proc/sandboxer/sandbox_me behaviour implementation: */
 
@@ -165,9 +168,168 @@ static const struct file_operations notifications_file_ops = {
     .release = seq_release
 };
 
+// /proc/sandboxer/[slot_id]/[property] behaviour implementation
+
+static LIST_HEAD(properties);
+
+struct property {
+    struct list_head node;
+    const char *name;
+    int (*callback)(struct seq_file *, size_t);
+};
+
+struct property_file {
+    struct list_head slot_list_node;
+    struct proc_dir_entry *proc_entry;
+    struct proc_dir_entry *parent;
+    size_t slot_id;
+    struct property *implemented;
+};
+
+static void *property_seq_start(struct seq_file *s, loff_t *pos) {
+    if (*pos > 0) {
+        *pos = 0;
+        return NULL;
+    }
+    return s->private;
+}
+
+static void *property_seq_next(struct seq_file *s, void *v, loff_t *pos) {
+    ++*pos;
+    return NULL;
+}
+
+static int property_seq_show(struct seq_file *s, void *v) {
+    struct property_file *p;
+
+    p = v;
+    return p->implemented->callback(s, p->slot_id);
+}
+
+static void property_seq_stop(struct seq_file *s, void *v) {}
+
+static const struct seq_operations property_seq_ops = {
+    .start = property_seq_start,
+    .show = property_seq_show,
+    .next = property_seq_next,
+    .stop = property_seq_stop
+};
+
+static int property_open(struct inode *inode, struct file *file) {
+    struct property_file *p;
+    struct seq_file *s;
+    int errno;
+
+    p = PDE_DATA(inode);
+
+    if ((errno = seq_open(file, &property_seq_ops)) != 0)
+        return errno;
+
+    s = file->private_data;
+    s->private = p;
+    
+    return errno;
+}
+
+static const struct file_operations properties_file_ops = {
+    .owner = THIS_MODULE,
+    .open = property_open,
+    .read = seq_read,
+    .llseek = seq_lseek,
+    .release = seq_release
+};
+
+int add_slot_property(const char *name, int (*cb)(struct seq_file *, size_t)) {
+    struct property *p;
+    
+    p = kmalloc(sizeof(struct property), GFP_KERNEL);
+    
+    if (!p)
+        return -ENOMEM;
+
+    p->name = name;
+    p->callback = cb;
+    list_add_tail(&p->node, &properties);
+
+    return 0;
+}
+
 static struct proc_dir_entry *sandboxer_dir;
 static struct proc_dir_entry *sandbox_me_entry;
 static struct proc_dir_entry *notifications_entry;
+
+int create_slotid_dir(struct sandbox_slot *s) {
+    char buf[20];
+    struct list_head *node, *jj;
+    struct property *pr;
+    struct property_file *pr_file;
+    int errno;
+
+    errno = 0;
+
+    sprintf(buf, "%lu", s->slot_id);
+    s->slotid_dir = proc_mkdir(buf, sandboxer_dir);
+    
+    if (!(s->slotid_dir))
+        return -ENOMEM;
+
+
+    list_for_each(node, &properties) {
+        pr = list_entry(node, struct property, node);
+        pr_file = kmalloc(sizeof(struct property_file), GFP_KERNEL);
+
+        if (!pr_file) {
+            errno = -ENOMEM;
+            goto free_all_memory;
+        }
+
+        pr_file->parent = s->slotid_dir;
+        pr_file->slot_id = s->slot_id;
+        pr_file->implemented = pr;
+
+        list_add_tail(&pr_file->slot_list_node, &s->property_files); 
+
+        pr_file->proc_entry = proc_create_data(pr->name, 0666, s->slotid_dir, &properties_file_ops, pr_file);
+
+        if (!pr_file) {
+            errno = -ENOMEM;
+            goto free_all_memory;
+        }
+
+        continue;
+
+      free_all_memory:
+         list_for_each(jj, &s->property_files) {
+            pr_file = list_entry(jj, struct property_file, slot_list_node);
+            
+            if (pr_file->proc_entry) {
+                remove_proc_entry(pr_file->implemented->name, s->slotid_dir);
+            }
+
+            kfree(pr_file);
+         }
+         remove_proc_entry(buf, sandboxer_dir);
+         goto out;
+    }
+
+  out:
+    return errno;
+}
+
+void destroy_slotid_dir(struct sandbox_slot *s) {
+    struct property_file *pr_file;
+    char buf[20];
+
+    while (!list_empty(&s->property_files)) {
+        pr_file = list_first_entry(&s->property_files, struct property_file, slot_list_node);
+        list_del(&pr_file->slot_list_node);
+        remove_proc_entry(pr_file->implemented->name, s->slotid_dir);
+        kfree(pr_file);
+    }
+
+    sprintf(buf, "%lu", s->slot_id);
+    remove_proc_entry(buf, sandboxer_dir);
+}
 
 #define FAIL_ON_NULL(x)                               \
     if ((x) == NULL) {                                \
@@ -175,7 +337,10 @@ static struct proc_dir_entry *notifications_entry;
         return -ENOMEM;                               \
     }
 
+
 int init_or_shutdown_sandboxer_proc_dir(int initlib_mode, __attribute__((unused)) void *ignored) {
+    struct property *pr;
+
     if (initlib_mode) {
         FAIL_ON_NULL(sandboxer_dir = proc_mkdir("sandboxer", NULL))
 
@@ -192,6 +357,11 @@ int init_or_shutdown_sandboxer_proc_dir(int initlib_mode, __attribute__((unused)
         }
         if (sandboxer_dir) {
             remove_proc_entry("sandboxer", NULL);
+        }
+        while (!list_empty(&properties)) {
+            pr = list_first_entry(&properties, struct property, node);
+            list_del(&pr->node);
+            kfree(pr);
         }
     }
     return 0;

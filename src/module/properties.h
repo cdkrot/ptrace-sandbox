@@ -14,22 +14,13 @@
 //  You should have received a copy of the GNU General Public License
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-#ifndef SANDBOXER_PROC_H_
-#define SANDBOXER_PROC_H_
+#ifndef SANDBOXER_PROPERTIES_H_
+#define SANDBOXER_PROPERTIES_H_
 
-#include <linux/types.h>
-#include <linux/seq_file.h>
-#include "slot.h"
+/*
+ * Pushes all properties to proc module. Initlib-friendly. Should be called in initialization time but 
+ * _after_ initialization proc subsystem.
+ **/
+int init_or_shutdown_properties(int initlib_mode, __attribute__((unused)) void *ignored);
 
-/* 
- * Initializes /proc/sandboxer directory and files there. Initlib-friendly.
- */
-int init_or_shutdown_sandboxer_proc_dir(int initlib_mode, __attribute__((unused))void* ignored);
-
- 
-int add_slot_property(const char *name, int (*cb)(struct seq_file *, size_t));
-
-int create_slotid_dir(struct sandbox_slot *s);
-void destroy_slotid_dir(struct sandbox_slot *s);
-
-#endif //SANDBOXER_PROC_H_
+#endif //PROPERTIES_H_

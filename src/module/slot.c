@@ -23,6 +23,7 @@
 #include "hashmap.h"
 #include "notifications.h"
 #include "slot.h"
+#include "proc.h"
 
 static struct hashmap hmp;
 static int hashmap_size_hint = 500;
@@ -100,6 +101,15 @@ struct sandbox_slot* create_slot(void) {
 
     spin_lock_init(&res->lock);
 
+    INIT_LIST_HEAD(&res->property_files);
+    if (create_slotid_dir(res) != 0) {
+        hashmap_set(&hmp, task_pid(current), NULL, NULL);
+        kfree(res);
+        put_pid(res->mentor);
+        return NULL;
+    }
+
+
     send_slot_create_notification(res);
 
     return res;
@@ -121,6 +131,7 @@ void release_slot(void) {
 
         if (del) {
             send_slot_term_notification(pslot);
+            destroy_slotid_dir(pslot);
             decrease_mentor_refcnt(pslot->mentor);
 
             put_pid(pslot->mentor);
@@ -142,6 +153,7 @@ void release_slot_ref(struct sandbox_slot* pslot) {
     spin_unlock_irqrestore(&pslot->lock, flags);
     if (del) {
         send_slot_term_notification(pslot);
+        destroy_slotid_dir(pslot);
         decrease_mentor_refcnt(pslot->mentor);
 
         put_pid(pslot->mentor);

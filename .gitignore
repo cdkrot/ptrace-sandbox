@@ -38,6 +38,8 @@ src/module/*
 !src/module/hashmap.c
 !src/module/notifications.h
 !src/module/notifications.c
+!src/module/properties.h
+!src/module/properties.c
 
 !src/module/tests
 src/module/tests/*

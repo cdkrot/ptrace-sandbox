@@ -1,2 +1,3 @@
 Our todos:
 * Call splay() in lower_bound, find.
+* Guarantee that no slots are running while slot is beeing removed.

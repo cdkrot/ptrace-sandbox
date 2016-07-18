@@ -22,6 +22,7 @@
 #include "probes.h"
 #include "slot.h"
 #include "proc.h"
+#include "properties.h"
 #include "tests/test-hashmap.h"
 #include "tests/test-splay.h"
 
@@ -110,6 +111,11 @@ static int __init sandboxer_module_init(void) {
     }
 
     if ((errno = initlib_push(init_or_shutdown_sandboxer_proc_dir, NULL)) != 0) {
+        printk(KERN_ERR "sandboxer: Failed to initialize proc subsystem.\n");
+        goto out_error;
+    }
+    
+    if ((errno = initlib_push(init_or_shutdown_properties, NULL)) != 0) {
         printk(KERN_ERR "sandboxer: Failed to initialize proc subsystem.\n");
         goto out_error;
     }

@@ -4,7 +4,7 @@
 CC=gcc -Wall -Wextra -Wshadow -Wimplicit -std=gnu11
 
 # < Main targets >
-all: bin/userspace/threading-splay-test bin/userspace/sandbox-nothing
+all: bin/userspace/threading-splay-test bin/userspace/sandbox-nothing bin/userspace/sbslotid
 
 help:
 	@echo "Do not call this make directly"
