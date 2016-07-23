@@ -15,6 +15,7 @@
 //  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "hashmap.h"
+#include "memcontrol.h"
 #include <linux/bug.h>
 #include <linux/slab.h>
 
@@ -41,7 +42,7 @@ int init_hashmap(struct hashmap* hmp, size_t min_size) {
 
     rwlock_init(&(hmp->lock));
 
-    hmp->data = kmalloc(sizeof(struct hashmap_entry) * real_size, GFP_KERNEL);
+    hmp->data = sb_kmalloc(sizeof(struct hashmap_entry) * real_size, GFP_KERNEL, SBMT_HASHMAP);
     if (!(hmp->data))
         return -ENOMEM;
 
@@ -152,7 +153,7 @@ int hashmap_set(struct hashmap* hmp, const void* key, void* value, void** oldval
 }
 
 void hashmap_free(struct hashmap* hmp) {
-    kfree(hmp->data);
+    sb_kfree(hmp->data);
 }
 
 bool hashmap_compare_simple(const void* key1, const void* key2) {

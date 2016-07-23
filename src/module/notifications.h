@@ -20,6 +20,7 @@
 #include "slot.h"
 
 #include <linux/pid.h>
+#include <linux/types.h>
 
 struct slot_create_notification {
     int slot_id;

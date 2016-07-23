@@ -17,6 +17,7 @@
 #include "proc.h"
 #include "slot.h"
 #include "notifications.h"
+#include "memcontrol.h"
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
@@ -96,7 +97,7 @@ static void *notifications_seq_start(struct seq_file *s, loff_t *pos) {
     }
 
     // Well, notification should be stored somewhere, right?
-    n = kmalloc(sizeof(struct notification), GFP_KERNEL);
+    n = sb_kmalloc(sizeof(struct notification), GFP_KERNEL, SBMT_NOTIFICATION);
     if (!n) {
         printk(KERN_INFO "sandboxer: could not allocate memory for notification");
         return NULL;
@@ -121,7 +122,7 @@ static int notifications_seq_show(struct seq_file *s, void *v) {
 
         case SLOT_STOP:
             seq_printf(s, "SLOT_STOP %d %s\n", n->data.slot_stop.slot_id, n->data.slot_stop.reason);
-            kfree(n->data.slot_stop.reason);
+            sb_kfree(n->data.slot_stop.reason);
             break;
 
         case SLOT_TERM:
@@ -136,18 +137,17 @@ static int notifications_seq_show(struct seq_file *s, void *v) {
             seq_printf(s, "MEM_LIM %d\n", n->data.mem_lim.slot_id);
             break;
     }
-
+    
     return 0;
 }
 
 static void *notifications_seq_next(struct seq_file *s, void *v, loff_t *pos) {
+    sb_kfree(v);
     ++*pos;
     return NULL;
 }
 
-static void notifications_seq_stop(struct seq_file *s, void *v) {
-    kfree(v);
-}
+static void notifications_seq_stop(struct seq_file *s, void *v) {}
 
 static const struct seq_operations notifications_seq_ops = {
     .start = notifications_seq_start,
@@ -242,7 +242,7 @@ static const struct file_operations properties_file_ops = {
 int add_slot_property(const char *name, int (*cb)(struct seq_file *, size_t)) {
     struct property *p;
     
-    p = kmalloc(sizeof(struct property), GFP_KERNEL);
+    p = sb_kmalloc(sizeof(struct property), GFP_KERNEL, SBMT_PROPERTY);
     
     if (!p)
         return -ENOMEM;
@@ -276,7 +276,7 @@ int create_slotid_dir(struct sandbox_slot *s) {
 
     list_for_each(node, &properties) {
         pr = list_entry(node, struct property, node);
-        pr_file = kmalloc(sizeof(struct property_file), GFP_KERNEL);
+        pr_file = sb_kmalloc(sizeof(struct property_file), GFP_KERNEL, SBMT_PROPERTY_FILE);
 
         if (!pr_file) {
             errno = -ENOMEM;
@@ -306,7 +306,7 @@ int create_slotid_dir(struct sandbox_slot *s) {
                 remove_proc_entry(pr_file->implemented->name, s->slotid_dir);
             }
 
-            kfree(pr_file);
+            sb_kfree(pr_file);
          }
          remove_proc_entry(buf, sandboxer_dir);
          goto out;
@@ -324,7 +324,7 @@ void destroy_slotid_dir(struct sandbox_slot *s) {
         pr_file = list_first_entry(&s->property_files, struct property_file, slot_list_node);
         list_del(&pr_file->slot_list_node);
         remove_proc_entry(pr_file->implemented->name, s->slotid_dir);
-        kfree(pr_file);
+        sb_kfree(pr_file);
     }
 
     sprintf(buf, "%lu", s->slot_id);
@@ -361,7 +361,7 @@ int init_or_shutdown_sandboxer_proc_dir(int initlib_mode, __attribute__((unused)
         while (!list_empty(&properties)) {
             pr = list_first_entry(&properties, struct property, node);
             list_del(&pr->node);
-            kfree(pr);
+            sb_kfree(pr);
         }
     }
     return 0;

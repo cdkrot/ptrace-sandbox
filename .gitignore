@@ -40,6 +40,8 @@ src/module/*
 !src/module/notifications.c
 !src/module/properties.h
 !src/module/properties.c
+!src/module/memcontrol.h
+!src/module/memcontrol.c
 
 !src/module/tests
 src/module/tests/*

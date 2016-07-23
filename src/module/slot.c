@@ -20,6 +20,7 @@
 #include <linux/pid.h>
 #include <linux/slab.h>
 #include <linux/thread_info.h>
+#include "memcontrol.h"
 #include "hashmap.h"
 #include "notifications.h"
 #include "slot.h"
@@ -67,18 +68,18 @@ struct sandbox_slot* create_slot(void) {
     if (get_slot_of() != NULL)
         return NULL;
 
-    res = kmalloc(sizeof(struct sandbox_slot), GFP_KERNEL);
+    res = sb_kmalloc(sizeof(struct sandbox_slot), GFP_KERNEL, SBMT_SLOT);
     if (!res)
         return NULL;
 
     if (hashmap_set(&hmp, task_pid(current), res, NULL)) {
-        kfree(res);
+        sb_kfree(res);
         return NULL;
     }
 
     if (increase_mentor_refcnt(task_pid(current->real_parent))) {
         hashmap_set(&hmp, task_pid(current), NULL, NULL);
-        kfree(res);
+        sb_kfree(res);
         return NULL;
     }
 
@@ -104,11 +105,10 @@ struct sandbox_slot* create_slot(void) {
     INIT_LIST_HEAD(&res->property_files);
     if (create_slotid_dir(res) != 0) {
         hashmap_set(&hmp, task_pid(current), NULL, NULL);
-        kfree(res);
+        sb_kfree(res);
         put_pid(res->mentor);
         return NULL;
     }
-
 
     send_slot_create_notification(res);
 
@@ -135,7 +135,7 @@ void release_slot(void) {
             decrease_mentor_refcnt(pslot->mentor);
 
             put_pid(pslot->mentor);
-            kfree(pslot);
+            sb_kfree(pslot);
         }
     }
 }
@@ -157,7 +157,7 @@ void release_slot_ref(struct sandbox_slot* pslot) {
         decrease_mentor_refcnt(pslot->mentor);
 
         put_pid(pslot->mentor);
-        kfree(pslot);
+        sb_kfree(pslot);
     }
 }
 

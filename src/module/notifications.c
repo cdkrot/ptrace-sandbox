@@ -16,6 +16,7 @@
 
 #include "splay.h"
 #include "notifications.h"
+#include "memcontrol.h"
 
 #include <linux/pid.h>
 #include <linux/moduleparam.h>
@@ -139,19 +140,20 @@ static void remove_value(struct pid *pid) {
         n->R->par = NULL;
     root = merge(n->L, n->R);
     snode = get_queue(n);
-    kfree(snode->queue);
-    kfree(snode);
+    sb_kfree(snode->queue);
+    sb_kfree(snode);
 }
 
 struct notification_queue* allocate_queue(struct pid *pid) {
     struct notification_queue *ret;
 
-    ret = kmalloc(sizeof(struct notification_queue), GFP_ATOMIC);
+    ret = sb_kmalloc(sizeof(struct notification_queue), GFP_ATOMIC, SBMT_NOTIFICATIONS_STRUCT);
     if (!ret)
         return NULL;
-    ret->queue = kmalloc(sizeof(struct notification) * notification_queue_size, GFP_ATOMIC);
+    ret->queue = sb_kmalloc(sizeof(struct notification) * notification_queue_size, 
+                            GFP_ATOMIC, SBMT_NOTIFICATION_QUEUE);
     if (!(ret->queue)) {
-        kfree(ret);
+        sb_kfree(ret);
         return NULL;
     }
     ret->pid = pid;

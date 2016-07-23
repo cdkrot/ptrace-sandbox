@@ -23,6 +23,8 @@
 #include "slot.h"
 #include "proc.h"
 #include "properties.h"
+#include "notifications.h"
+#include "memcontrol.h"
 #include "tests/test-hashmap.h"
 #include "tests/test-splay.h"
 
@@ -95,13 +97,18 @@ static int __init sandboxer_module_init(void) {
         goto out_error;
     }
 
+    if ((errno = initlib_push(init_or_shutdown_memcontrol, NULL)) != 0) {
+        printk(KERN_ERR "sandboxer: memcontrol initialization failed.\n");
+        goto out_error;
+    }
+
     if ((errno = perform_tests()) != 0) {
         printk(KERN_ERR "sandboxer: Tests failed.\n");
         goto out_error;
     }
 
     if ((errno = sandboxer_init_probes()) != 0) {
-        printk(KERN_ERR "sandboxer: Failed to initialized probes subsystem.\n");
+        printk(KERN_ERR "sandboxer: Failed to initialize probes subsystem.\n");
         goto out_error;
     }
 
