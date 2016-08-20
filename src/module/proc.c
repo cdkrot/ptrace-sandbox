@@ -87,77 +87,40 @@ static const struct file_operations sandbox_me_file_ops = {
 
 // /proc/sandboxer/notifications behaviour implementation:
 
-static void *notifications_seq_start(struct seq_file *s, loff_t *pos) {
-    struct notification *n;
-    int errno;
+static int notifications_show(struct seq_file *s, void *v) {
+    struct notification n;
+    int errno = read_notification(task_pid(current), &n);
 
-    if (*pos > 0) {
-        *pos = 0;
-        return NULL;
-    }
-
-    // Well, notification should be stored somewhere, right?
-    n = sb_kmalloc(sizeof(struct notification), GFP_KERNEL, SBMT_NOTIFICATION);
-    if (!n) {
-        printk(KERN_INFO "sandboxer: could not allocate memory for notification");
-        return NULL;
-    }
-
-    errno = read_notification(task_pid(current), n);
-    if (errno) {
-        printk(KERN_INFO "sandboxer: read_notification exited with errno %d", errno);
-        return NULL;
-    }
-
-    return n;
-}
-
-static int notifications_seq_show(struct seq_file *s, void *v) {
-    struct notification *n = v;
-
-    switch (n->type) {
+    BUG_ON(errno);
+    
+    switch (n.type) {
         case SLOT_CREATE:
-            seq_printf(s, "SLOT_CREATE %d\n", n->data.slot_create.slot_id);
+            seq_printf(s, "SLOT_CREATE %d\n", n.data.slot_create.slot_id);
             break;
 
         case SLOT_STOP:
-            seq_printf(s, "SLOT_STOP %d %s\n", n->data.slot_stop.slot_id, n->data.slot_stop.reason);
-            sb_kfree(n->data.slot_stop.reason);
+            seq_printf(s, "SLOT_STOP %d %s\n", n.data.slot_stop.slot_id, n.data.slot_stop.reason);
+            sb_kfree(n.data.slot_stop.reason);
             break;
 
         case SLOT_TERM:
-            seq_printf(s, "SLOT_TERM %d\n", n->data.slot_term.slot_id);
+            seq_printf(s, "SLOT_TERM %d\n", n.data.slot_term.slot_id);
             break;
 
         case SEC_VIOL:
-            seq_printf(s, "SEC_VIOL %d\n", n->data.sec_viol.slot_id);
+            seq_printf(s, "SEC_VIOL %d\n", n.data.sec_viol.slot_id);
             break;
 
         case MEM_LIM:
-            seq_printf(s, "MEM_LIM %d\n", n->data.mem_lim.slot_id);
+            seq_printf(s, "MEM_LIM %d\n", n.data.mem_lim.slot_id);
             break;
     }
     
     return 0;
 }
 
-static void *notifications_seq_next(struct seq_file *s, void *v, loff_t *pos) {
-    sb_kfree(v);
-    ++*pos;
-    return NULL;
-}
-
-static void notifications_seq_stop(struct seq_file *s, void *v) {}
-
-static const struct seq_operations notifications_seq_ops = {
-    .start = notifications_seq_start,
-    .show = notifications_seq_show,
-    .next = notifications_seq_next,
-    .stop = notifications_seq_stop
-};
-
 static int notifications_open(struct inode *inode, struct file *file) {
-    return seq_open(file, &notifications_seq_ops);
+    return single_open(file, notifications_show, NULL);
 }
 
 static const struct file_operations notifications_file_ops = {
@@ -165,7 +128,7 @@ static const struct file_operations notifications_file_ops = {
     .open = notifications_open,
     .read = seq_read,
     .llseek = seq_lseek,
-    .release = seq_release
+    .release = single_release
 };
 
 // /proc/sandboxer/[slot_id]/[property] behaviour implementation
