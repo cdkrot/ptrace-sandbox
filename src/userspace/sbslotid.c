@@ -22,8 +22,6 @@ int child() {
 
     printf("child: %d\n", s);
 
-    usleep(20e6);
-
     return 0;
 }
 
