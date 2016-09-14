@@ -50,3 +50,8 @@ src/module/tests/*
 !src/module/tests/test-splay.h
 !src/module/tests/random-splay-test.c
 !src/module/tests/threading-splay-test.c
+
+!src/module/tags/
+src/module/tags/*
+!src/module/tags/fork.c
+!src/module/tags/fork.h
