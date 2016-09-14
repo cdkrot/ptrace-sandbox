@@ -21,6 +21,10 @@
 #include "slot.h"
 #include "notifications.h"
 
+// Include tag handler headers
+
+#include "tags/fork.h"
+
 struct kprobe probe_task_exit;
 struct jprobe probe_syscall_enter;
 struct jprobe probe_syscall_leave;
@@ -51,15 +55,21 @@ int sandboxer_init_probes(void) {
     initlib_push_errmsg(init_or_shutdown_jprobe, &probe_syscall_enter,
                         "sandboxer: failed to initialize probe on syscall enter");
 
-    probe_syscall_leave.kp.symbol_name = "syscall_return_slowpath";
-    probe_syscall_leave.entry          = sandboxer_on_sysleave;
-    if (initlib_push_advanced(init_or_shutdown_jprobe, &probe_syscall_leave,
-                              NULL, false)) {
-        printk("sandboxer: trying to fallback to oldschool syscall leave handler");
+    /* syscall_trace_leave was removed in kernel commit 88cd622. We probe it only in older kernels.
+     * syscall_return_slowpath was introduced in kernel 4.2.0-rc4. */
+    if (kallsyms_lookup_name("syscall_return_slowpath")) {
+        probe_syscall_leave.kp.symbol_name = "syscall_return_slowpath";
+    } else {
+        printk(KERN_INFO "sandboxer: syscall_return_slowpath not found, "
+                         "falling back to syscall_trace_leave\n");
         probe_syscall_leave.kp.symbol_name = "syscall_trace_leave";
-        initlib_push_errmsg(init_or_shutdown_jprobe, &probe_syscall_leave,
-                            "sandboxer: failed to initialized probe on syscall leave");
     }
+    probe_syscall_leave.entry          = sandboxer_on_sysleave;
+    initlib_push_errmsg(init_or_shutdown_jprobe, &probe_syscall_leave,
+                        "sandboxer: failed to initialized probe on syscall leave");
+
+    // Init tag handlers
+    init_fork_tag();
 
     return 0;
 }
